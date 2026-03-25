@@ -1,0 +1,1717 @@
+PHYSICAL REVIEW B 93, 064428 (2016)
+Stability of skyrmion lattices and symmetries of quasi-two-dimensional chiral magnets
+Utkan G¨ung¨ord¨u,1,* Rabindra Nepal,1 Oleg A. Tretiakov,2,3 Kirill Belashchenko,1 and Alexey A. Kovalev1
+1Department of Physics and Astronomy and Nebraska Center for Materials and Nanoscience,
+University of Nebraska, Lincoln, Nebraska 68588, USA
+2Institute for Materials Research, Tohoku University, Sendai 980-8577, Japan
+3School of Natural Sciences, Far Eastern Federal University, Vladivostok 690950, Russia
+(Received 19 October 2015; revised manuscript received 22 December 2015; published 24 February 2016)
+Recently there has been substantial interest in realizations of skyrmions, in particular in quasi-two-dimensional
+(2D) systems due to increased stability resulting from reduced dimensionality. A stable skyrmion, representing
+the smallest realizable magnetic texture, could be an ideal element for ultradense magnetic memories. Here we
+use the most general form of the quasi-2D free energy with Dzyaloshinskii-Moriya interactions constructed from
+general symmetry considerations reﬂecting the underlying system. We predict that the skyrmion phase is robust
+and it is present even when the system lacks the in-plane rotational symmetry. In fact, the lowered symmetry
+leads to increased stability of vortex-antivortex lattices with fourfold symmetry and in-plane spirals, in some
+instances even in the absence of an external magnetic ﬁeld. Our results relate different hexagonal and square
+cell phases to the symmetries of materials used for realizations of skyrmions. This will give clear directions for
+experimental realizations of hexagonal and square cell phases, and will allow engineering of skyrmions with
+unusual properties. We also predict striking differences in gyrodynamics induced by spin currents for isolated
+skyrmions and for crystals where spin currents can be induced by charge carriers or by thermal magnons. We
+ﬁnd that under certain conditions, isolated skyrmions can move along the current without a side motion which
+can have implications for realizations of magnetic memories.
+DOI: 10.1103/PhysRevB.93.064428
+I. INTRODUCTION
+Skyrmions are topological structures corresponding to
+highly stable particlelike excitations. Although skyrmions
+were ﬁrst invented as a model for baryons [1], it has been found
+that their analogs can be realized in condensed-matter systems
+such as chiral magnets. Existence of magnetic skyrmion
+lattices has been predicted theoretically [ 2] and conﬁrmed
+experimentally [ 3]. Magnetic skyrmions in chiral magnets,
+which are the main subject of interest in this paper, have
+received a lot of interest recently [3–29].
+One of the most attractive features of skyrmions is their dy-
+namics [27]. For domain walls in ferromagnets, the threshold
+current density for current-driven motion is∼10
+9–1012 Am −2,
+whereas for skyrmions this threshold is ∼105 − 106 Am −2 in
+the slow-speed regime [ 30], which may lead to development
+of low-power and ultradense magnetic memories [ 31,32].
+Another attractive feature of skyrmions is the robustness of
+their motion: a shape deformation and a Magnus-like force in
+their dynamics allow skyrmions to avoid impurities and lead to
+a very robust current-velocity relation [25]. On the other hand,
+in magnetic insulators skyrmions can be driven by magnon
+currents induced by temperature gradients [ 15,16,23,33,34].
+The interlocking of the local magnetization direction and the
+spin of the conduction electrons in chiral magnets can lead
+to various transport phenomena such as the topological Hall
+effect [35–37] and non-Fermi liquid behavior [38–40].
+In chiral magnets such as MnSi, FeGe, and Cu
+2OSeO3 the
+microscopic spin-orbit coupling (SOC) breaks the inversion
+symmetry. This chiral interaction prefers twisted magnetic
+structures rather than uniform magnetization, and eventually
+*ugungordu@unl.edu
+can lead to creation of spirals and skyrmions. The SOC man-
+ifests itself as the Dzyaloshinskii-Moriya (DM) interaction
+in the free energy [ 27,41–43]. Symmetries of these magnets
+determine the nature of the DM interaction and magnetic
+textures that form within the magnet. For example, broken bulk
+inversion in noncentrosymmetric materials results in a highly
+symmetric DM interaction and vortexlike skyrmions. The
+stability of such skyrmions increases for thin ﬁlm structures
+[44,45], hinting that studies of two-dimensional (2D) systems
+should be of particular importance. In addition, inversion is
+naturally broken in 2D systems interfacing between different
+materials. Recent examples of such systems include magnetic
+monolayers [ 46,47] as well as magnetic thin ﬁlms [ 48,49]
+deposited on nonmagnetic metals with strong SOC. Magnetic
+systems at oxide interfaces [ 50,51] also reveal large SOC
+and DM interactions—ingredients that result in formation of
+skyrmions [52]. A magnetically doped thin layer on a surface
+of a topological insulator could be yet another promising
+system for realizations of magnetic systems with strong DM
+interactions [53,54].
+In this paper we study the effect of the structural and bulk
+asymmetries on the skyrmion (SkX) and square cell (SC)
+(vortex-antivortex) crystals. Taking the most general form of
+the free energy with DM interactions, we classify 2D chiral
+magnets. We discuss possible realizations via appropriate
+structural asymmetry where microscopically this leads to the
+appearance of SOC, e.g., of Rashba and/or Dresselhaus type.
+We calculate the phase diagram for different conﬁgurations
+of DM interactions and ﬁnd that SkX and SC phases are
+robust and are present even when the system is lacking the
+in-plane rotational symmetry—the case not considered in
+previous studies [18,19]. Magnetization dynamics simulations
+reveal that skyrmions and vortices ﬂexibly deform and adapt to
+lowered symmetries, resulting in conﬁgurations with unusual
+2469-9950/2016/93(6)/064428(13) 064428-1 ©2016 American Physical SocietyUTKAN G ¨UNG ¨ORD ¨U et al. PHYSICAL REVIEW B 93, 064428 (2016)
+shapes. However, we also ﬁnd that the SkX region of the
+phase diagram gradually shrinks as the asymmetries become
+stronger. On the other hand, the lowered symmetry leads to
+increased stability of the vortex-antivortex SC lattice with
+fourfold symmetry and the in-plane spiral, in some instances
+even in the absence of an external magnetic ﬁeld. In chiral
+magnets with only reﬂection symmetry, we ﬁnd an extremely
+stable in-plane spiral phase.
+We also address the spin-current-induced dynamics of
+isolated skyrmions and skyrmion crystals which is of interest
+due to potential applications of skyrmions in magnetic memory
+devices [31,32]. Using Thiele’s approach, we obtain a general
+velocity-current relation for skyrmions. Our results show
+that dissipative corrections can inﬂuence the direction of the
+transverse motion of isolated skyrmions, leading to strikingly
+different results for isolated skyrmions and skyrmion lattices.
+Our results apply to spin currents induced by charge carriers
+as well as to spin currents induced by magnon ﬂows. The latter
+case is addressed in more detail in AppendixD where we derive
+the Landau-Lifshitz-Gilbert (LLG) equation with magnonic
+torques starting from the stochastic LLG equation. Finally, in
+Appendix B we also show how DM interactions can arise from
+spin-orbit interactions in microscopic models corresponding
+to magnets with both localized (relevant to oxide interfaces
+[50,51]) and itinerant (relevant to thin magnetic ﬁlms [48,49])
+spins.
+II. MODEL
+Our system of interest is a 2D chiral magnet with crystalline
+anisotropies and in the presence of an external magnetic
+ﬁeld. The continuum free energy of such system contains the
+chiral term known as Dzyaloshinskii-Moriya (DM) interaction
+[41–43] which is responsible for broken inversion symmetry.
+Its origins can be traced back to relativistic spin-orbit coupling
+(SOC) [30,55,56] which provides a link between structural and
+magnetic chiralities in the system (see AppendixA for further
+discussion). We phenomenologically introduce the continuum
+free energy density of the 2D chiral magnet as
+F
+0 =
+∑
+μ=x,y
+J
+2 (∂μ n)2 + ( ˆDeμ) · (n × ∂μ n), (1)
+where n is a unit vector along local spin density, eμ is a
+unit vector along the μ axis in the positive direction, J> 0
+is the exchange interaction constant, and ˆD is a rank-2
+tensor describing the DM interaction whose form depends
+on the structural and bulk symmetries of the system. Note
+that asymmetric spin-orbit interactions can be introduced in a
+similar way for semiconductor quantum wells [57].
+For convenience, we work with dimensionless free energy
+density obtained by the transformation x → x/(J/D ), y →
+y/(J/D ), where D =| | ˆD|| > 0 is the overall strength of the
+DM interaction andJ/D is the typical length scale of magnetic
+structures such as skyrmions and spirals [58]. Expressed using
+the new units of length, the free energy density becomes
+F
+0 =
+∑
+μ=x,y
+1
+2(∂μ n)2 + ( ˆDeμ/D) · (n × ∂μ n)( 2 )
+in units ofJ . The following discussions in this paper are based
+on this free energy density with additional Zeeman energy
+H · n due to the external magnetic ﬁeld and uniaxial anisotropy
+energy Asn2
+z. Expressed in the new units, the total free energy
+density is given by
+F = F0 + HJ
+D2 nz + AsJ
+D2 n2
+z, (3)
+where F0 is given by Eq. (2), H = gμBHa, Ha is the strength
+of the applied external magnetic ﬁeld along the z axis, g> 0
+is theg factor,μB is the Bohr magneton, andAs is the strength
+of the anisotropy. Adding moderate strength anisotropy that
+is not of easy-plane/easy-axis type in Eq. (3) does not change
+our results qualitatively.
+We now investigate the effects of broken symmetries in a
+chiral magnet due to structural asymmetries, which manifest
+themselves in the form of ˆD tensor. To this end, let us discuss
+the correspondence between the structural asymmetries in a
+system and the form of the free energy density given by Eq. (3).
+We ﬁrst note that in the case of a 2D magnet given that∂
+z = 0
+[cf. Eq. ( 2)] the rightmost column of ˆD is unimportant in
+the sense that it does not contribute to the free energy. The
+symmetries of the DM magnet can be classiﬁed based on the
+DM tensor ˆD, which can be written as a sum of a symmetric
+and an antisymmetric tensor as ˆD = ˆD
+sym + Dasym×.T h e
+off-diagonal tensor components [ ˆD]zx and [ ˆD]zy can come
+from both symmetric and antisymmetric parts of ˆD, however
+we can assume that they are due to the antisymmetric part
+without losing any generality in our classiﬁcation. Thus
+assuming [ ˆD
+sym]zx = [ ˆDsym]zy = 0, the 2× 2 upper-left block
+of ˆDsym can be diagonalized and expressed as D01 + D3 ˆλ3
+[here ˆλ3 = diag(1, − 1,0) and 1 = diag(1,1,0)] by an in-plane
+O(2) operation (rotation and/or reﬂection) around the z axis.
+Since [ ˆD]zz does not enter into the free energy, this meansˆDsym
+can be speciﬁed using two independent parameters ( D0,D3).
+The antisymmetric part, however, requires the full set of three
+parameters D
+asym = (Dx,Dy,Dz).
+Based on this decomposition, symmetries of a 2D DM
+magnet can be classiﬁed into six symmetry classes [59]:
+(1) Rashba SOC: ˆD =− Dz×=− D ˆJz with in-plane
+O(2) symmetry [throughout this paper, ˆJμ denote the gen-
+erators of SO(3), explicitly given in Eq. (A3)].
+(2) Dresselhaus SOC: ˆD =− D ˆλ1 [ˆλ1 is given in Eq. ( 4)
+with D2d symmetry] [60].
+(3) In-plane SO(2) symmetry: ˆD =− D01 resulting in
+the DM interaction term −Dn · (∇ × n) which could be of
+relevance, e.g., for MnSi [5,43]. This case could also include a
+Rashba contribution ˆD =− D01 − Dz ˆJz without affecting the
+symmetry class.
+(4) Combination of Rashba and Dresselhaus SOC, found
+in noncentrosymmetric systems: ˆD =− DR ˆJz − DD ˆλ1 such
+that D =
+√
+D2
+R + D2
+D, corresponding to an interface withC2v
+symmetry (C2v symmetry is described in Fig. 1).
+(5) C2 symmetry: ˆD =− D01 − D1 ˆλ1 − Dz ˆJz.
+(6) Reﬂection symmetry: ˆD =− DnT ×, where nT is a
+tilted unit vector making a nonzero angle with the z axis. For
+such a system, the plane of reﬂection is along the in-plane
+component of n
+T . This case could also include a contribution
+from the Dresselhaus term when the tilting is along one of the
+mirror planes of C
+2v symmetry.
+064428-2STABILITY OF SKYRMION LATTICES AND SYMMETRIES . . . PHYSICAL REVIEW B 93, 064428 (2016)
+y
+x
+z
+σ(xz)
+σ(yz)
+C2
+π
+FIG. 1. Nontrivial symmetry operations of the point group C2v.
+σ(yz)[ σ(xz)] is a reﬂection through the yz (xz) plane and C2 is a π
+rotation around the z axis.
+Let us turn to the properties of the free energy under
+global transformations of magnetization. The free energy
+density of the DM magnet given by Eq. ( 3) does not change
+under the global transformation n → ˆR
+z n, ˆD → ˆRz ˆD, where
+ˆRz ∈ O(2) is a global rotation around/reﬂection through the z
+axis (note that this is not a similarity transformation). It follows
+that the cases ˆD =− Dz× and ˆD =− D1 (or their linear
+combinations) can be mapped onto each other and lead to the
+same phase diagram [ 61] where the corresponding mapping
+is given in Figs. 2(a) and 2(d). These two cases have been
+studied in [18] and [5,19], respectively. A global magnetization
+rotation changes the helicity of the skyrmions by the angle
+of rotation, whereas a reﬂection changes the sign of their
+topological charge (for examples of the equivalent skyrmion
+conﬁgurations and the corresponding DM interactions see
+Fig. 2). Clearly the overall sign of the DM term is unimportant
+in the sense that it does not affect the phase diagram. Another
+example is given by the equivalence between the DM tensors
+ˆD =− D
+R ˆJz − DD ˆλ1 and ˆD =− DR 1 − DD ˆλ3, which are
+related by a global −π/2 rotation of magnetization around
+the z axis. We can also relate the free energies of systems
+with Dresselhaus SOC and the Rashba SOC [corresponding
+skyrmions are shown in Figs.2(e) and 2(a), respectively] using
+a reﬂection along the line x = y:
+ˆλ
+3 = ˆRx=y ˆJz with ˆRx=y = ˆλ1 =
+⎛
+⎝
+010
+100
+000
+⎞
+⎠ . (4)
+Here we dropped the [ ˆRx=y ]zz component of the reﬂection
+matrix since it does not play any role in this context. Owing
+to the transformation rules of the free energy density given
+by Eq. ( 3), phase diagrams corresponding to pure Rashba
+and Dresselhaus SOC are identical. Note that Rashba and
+Dresselhaus skyrmions will have opposite topological charge.
+We ﬁnally note that since the rightmost column of the DM
+tensor ˆD does not affect the free energy, whether [ ˆD]
+zx and
+[ ˆD]zy belong to the antisymmetric part of the tensor or not
+does not affect the phase diagram either.
+Thus there are only three distinct symmetry classes we
+need to consider: the Rashba case, the Rashba combined with
+Dresselhaus case, and the Rashba with tilting case, i.e., ˆD =
+−Dn
+T ×. We remark that the equivalence relations we just
+described are global transformations relating the free energies
+of two distinct systems with different DM tensors, whereas
+Q =1
+(a) γ =0 (b) γ = π
+2 (c) γ = π (d) γ = − π
+2
+Q = −1
+(e) γ =0 (f) γ = π
+2 (g) γ = π (h) γ = − π
+2
+FIG. 2. Spin density conﬁguration of skyrmions corresponding
+to different SOC. The length and direction of the arrows represent the
+in-plane component of n, and the color indicatesnz. At the skyrmion
+center, nz is aligned with the external magnetic ﬁeld H = H ez,
+whereas in the outer region of skyrmion nz is antialigned with
+H. The spin conﬁguration n ˆJz shown in (a) represents a skyrmion
+with topological charge Q = 1 and helicity γ = 0, which occurs for
+Rashba SOC given by ˆD =− D ˆJz. Other skyrmions (antiskyrmions)
+with topological charge Q = 1( Q =− 1) and an arbitrary helicity
+γ can be obtained via the global transformation ˆRz(γ)n ˆJz ;t h e y
+occur naturally in a system with DM tensor ˆD =− D ˆRz(γ) ˆJz
+[ ˆD = D ˆRz(γ)ˆλ3 ˆJz], where ˆRz(γ) = exp(γ ˆJz) is a rotation around
+the z axis by an angle γ and ˆλ3 = diag(1, − 1,0) is an inversion
+matrix.
+the symmetry classes we enumerated above correspond to
+the real-space symmetries of the free energy of the system
+corresponding to the speciﬁed DM tensor.
+III. PHASE DIAGRAMS
+In this section we present our results for the high-
+and low-symmetry cases of the spin-orbit interaction. We
+used Monte Carlo (MC) simulated annealing with jackknife
+resampling to obtain the equilibrium states. To construct
+the phase diagrams ( A
+s,H ), one can compare the energy
+of the states obtained from low-temperature ( kBT = 0.01J )
+annealing against the zero temperature ground-state energy of
+the uniform ferromagnetic state [ 19]. However, all the phase
+transitions we study are of the ﬁrst order (except for the one
+between the collinear aligned and tilted FM phases, which is
+a second order transition). As the ﬁrst order phase transitions
+exhibit hysteresis, the annealing does not give clear results near
+the phase boundaries. Instead, the conﬁguration gets stuck in
+metastable states, limiting the accuracy in ﬁnding the critical
+values of A
+s and H , and allowing only a semiquantitative
+analysis of the phase diagram [ 19]. On the other hand, the
+advantage of annealing over the variational approach [ 18]i s
+that ansatz-based minimization may miss certain phases such
+064428-3UTKAN G ¨UNG ¨ORD ¨U et al. PHYSICAL REVIEW B 93, 064428 (2016)
+as the square-lattice phase reported in [ 19]. Our approach
+here is twofold. We ﬁrst used MC to determine the phases
+and spin density conﬁgurations, and to obtain a sketch of the
+phase diagram. Using this information as the starting point, we
+solved the LLG equation numerically to determine the phase
+boundaries accurately at zero temperature.
+The spin density conﬁguration n(r
+i ) obtained from MC
+simulations has been analyzed by inspecting the Bragg peaks
+in the momentum space
+n(k) =
+∫ d
+d r
+(2π)d e−ik·r n(r), (5)
+as well as the topological charge density, which is given by
+χ(r) = 1
+4π [∂x n(r) × ∂y n(r)] · n(r), (6)
+where r and k are (in-plane ford = 2) position and momentum
+vectors and d = 2 for a 2D system.
+Annealing results reveal the presence of four different
+phases: ferromagnetic (FM, aligned with nz =− 1 and tilted
+with nz > −1), triangular skyrmion lattice (or skyrmion crys-
+tal, SkX), square cell (SC) lattice of vortices-antivortices (with
+the topological charge that is not an integer or a half-integer),
+and spiral (SP, denoting both coplanar and in-plane spirals)
+phases.
+Additional phases such as the cone phase may occur in a 3D
+chiral ferromagnet with the width ∼J/D or thicker [ 24,62].
+The presence of quartic term in the free energy near the Curie
+temperature T
+c is also known to inﬂuence the phase diagram
+[14].
+In order to determine the phase boundaries in a more precise
+manner, we numerically solved the overdamped LLG equation
+s(1 + αn×) ˙n = n × Heff, (7)
+in order to relax the system towards the local minimum. Here
+α is the Gilbert damping parameter,s is the local spin density,
+n is a unit vector along the spin density, and Heff =− δnF
+is the effective magnetic ﬁeld and F is the free energy. We
+used the LLG equation to relax the system into a stable state,
+starting from SC, SkX, and SP conﬁgurations that are based
+on the results from MC:
+n
+SkX = C[nq ( Q0) + nq ( Q2π/3) + nq ( Q−2π/3)],
+nSC = C[nq ( Q0) + nq ( Qπ/2)], (8)
+nSP = 1√
+2
+[eu cos(q · r) + ev sin(q · r)],
+where
+nq (q) = cos(q · r)ez + 1
+2 sin(q · r)ez ×
+( ˆD
+D q
+)
+,
+Qφ = (cos φ, sin φ,0)T ,
+(9)
+r = (x,y,0)T ,
+eu · ev = 0,
+and C is a (position-dependent) normalization factor ensuring
+that |n|= 1. Initial values for the unit vectors eu and ev were
+determined by minimization, and the cell size was treated and
+optimized as a dynamical variable (see AppendixE for details).
+We determined the phase at each (A
+s,H ) point by comparing
+the average energy densities for SkX, SC, and SP states, and
+the analytical energy density for the FM phase.
+A. Rashba SOC
+Here we study the case of the DM tensor given by
+ˆD =− D ˆJz. The cases ˆD =− D ˆJz and ˆD =− D1 (which
+are equivalent to each other up to a global transformation,
+as discussed in the previous section) have been studied in
+Refs. [ 18,19]. Our zero-temperature phase diagram shown
+in Fig. 3 mostly agrees with [ 18], except for the addi-
+tional SC region which was missing in their analysis. SkX
+phase shows hedgehoglike skyrmions with well-localized
+topological charge Q = 1 (Fig. 4). The same phase diagram
+also applies to the pure Dresselhaus case, ˆD =− D ˆλ
+1,b u t
+skyrmions have Q =− 1 due to the reﬂection involved in the
+equivalence transformation, as can be seen from Eq. ( 4). As
+the easy-plane anisotropy is increased the topological charge
+of skyrmions gradually splits, forming the precursor to the
+vortex-antivortex pair lattice shown in Fig. 5, while the total
+charge within a single unit cell remainsQ = 1. As pointed out
+in [19] the core radius of skyrmions in SkX phase becomes
+larger and skyrmions start to overlap causing the formation
+of vortices/antivortices during this process. When the relative
+size of antivortices (with respect to vortices) reaches a critical
+value, the square lattice becomes the energetically more
+favorable packing for the vortex-antivortex lattice and a ﬁrst
+order phase transition occurs from SkX phase to SC phase.
+− 1.5
+SkX
+SP SC
+FM
+− 1.0 − 0.5 0.0 0.5 1.0 1.5
+0.0
+0.5
+1.0
+1.5
+2.0
+AsJ/D2
+HJ/D 2
+Easy-axis Easy-plane
+FIG. 3. Zero temperature phase diagram for the pure Rashba or
+pure Dresselhaus type symmetry is obtained by numerically solving
+the LLG equation. The same phase diagram also applies to the case
+of SO(2) symmetric DM tensor ˆD =− D1. The gray line separates
+the aligned and the tilted regions of the FM phase. This phase is taken
+over by SkX, SP, and SC phases in the regions deﬁned by the bold
+lines.
+064428-4STABILITY OF SKYRMION LATTICES AND SYMMETRIES . . . PHYSICAL REVIEW B 93, 064428 (2016)
+/Minus6 /Minus4 /Minus2 0246
+/Minus5
+0
+5 nz
+/Minus1.0
+/Minus0.5
+0
+0.5
+1.0
+/Minus6 /Minus4 /Minus20 2 4 6
+/Minus5
+0
+5 nz
+/Minus1.0
+/Minus0.5
+0
+0.5
+1.0
+/Minus6 /Minus4 /Minus20 2 4 6
+/Minus5
+0
+5
+/Minus0.35
+/Minus0.25
+/Minus0.15
+/Minus0.05
+0.05
+/Minus6 /Minus4 /Minus20 2 4 6
+/Minus5
+0
+5
+/Minus0.30
+/Minus0.25
+/Minus0.20
+/Minus0.15
+/Minus0.10
+/Minus0.05
+FIG. 4. Normalized spin density n and topological charge density
+χ in SkX phase for the Rashba SOC. The size and direction of
+the arrows represent the in-plane component of n and the color
+represents nz. AsJ/D 2 = 0a n dHJ/D 2 = 0.7 (top), AsJ/D 2 = 0.8
+and HJ/D 2 = 0.7 (bottom). As the strength of the easy-plane
+anisotropy is increased, localized skyrmions undergo a continuous
+charge splitting. When the relative size of the antivortices reach a
+critical value, square packing becomes energetically favorable and a
+ﬁrst order phase transition occurs into SC phase.
+B. Rashba + Dresselhaus SOC
+The mixture of Rashba and Dresselhaus SOC [ 57,64,65]
+with C2v symmetry has been studied in [65] in the absence of
+anisotropies, with the conclusion that SkX phase cannot exist
+when both SOC terms are present. Our analysis here shows
+that SkX phase can be stabilized by the uniaxial anisotropy.
+Figure 6 shows the phase diagram for ˆD =− D
+R ˆJz − DD ˆλ1
+with DR/DD = 5( DR,DD > 0). The DM tensor of mostly
+of Rashba type with an additional small symmetry-breaking
+Dresselhaus type term results in skyrmions with the topolog-
+ical charge Q = 1. In the opposite situation of D
+D/DR = 5,
+skyrmions converge to topologically different Dresselhaus
+type skyrmions with Q =− 1 charge. We observe that SkX
+region shrinks while SP and SC regions expand. The C
+2v
+symmetry allows deformations along the axes of reﬂection
+(x and y axes in this case), but unlike the SP and SC
+/Minus10 /Minus50 51 0
+/Minus10
+/Minus5
+0
+5
+10
+/Minus3
+/Minus2
+/Minus1
+0
+/Minus15/Minus10 /Minus5 0 5 10 15
+/Minus15
+/Minus10
+/Minus5
+0
+5
+10
+15
+nz
+/Minus1.0
+/Minus0.5
+0
+0.5
+1.0
+/Minus10 /Minus5 0 5 10
+/Minus10
+/Minus5
+0
+5
+10
+/Minus3
+/Minus2
+/Minus1
+0
+/Minus15/Minus10 /Minus5 0 5 10 15
+/Minus15
+/Minus10
+/Minus5
+0
+5
+10
+15
+nz
+/Minus1.0
+/Minus0.5
+0
+0.5
+1.0
+FIG. 5. Normalized spin density and topological charge density
+at AsJ/D 2 = 1.5a n dHJ/D 2 = 1.4 (SC phase) for Rashba SOC.
+− 1.5
+SkX
+SP
+SC
+FM
+− 1.0 − 0.5 0.0 0.5 1.0 1.5
+0.0
+0.5
+1.0
+1.5
+2.0
+AsJ/D2
+HJ/D 2
+Easy-axis Easy-plane
+2.5
+3.0
+3.5
+4.0
+2.02 .5
+FIG. 6. Zero temperature phase diagram for the Rashba +
+Dresselhaus SOC with C2v symmetry ( ˆD =− DR ˆJz − DD ˆλ1 with
+DR/DD = 5). SkX phase is only present in the easy-plane region
+(AsJ/D 2 > 0) of the phase diagram. The gray line separates the
+aligned and the tilted regions of the FM phase [63], whereas SkX and
+SP phases are not affected by this line.
+conﬁgurations, the sixfold symmetry of SkX is not compatible
+with such deformations. Elongation of skyrmions along the
+axes of symmetry is evident in Figs. 7 and 8.
+C. Rashba SOC with tilting
+Finally, we discuss the case in which the DM tensor is anti-
+symmetric and corresponds to a vector that is making a small
+tilting angle with thez axis: ˆD =− D(0, sin θ
+T , cos θT )T × and
+the tilting angle is chosen to beθT = tan−1(0.1) ≈ 0.1o r5.7◦.
+Such a system has reﬂection symmetry along a single mirror
+plane (which is theyz plane for this choice of parameters). We
+ﬁnd that the SP region expands greatly while the SkX region
+slightly shrinks and the SC region is completely replaced by
+/Minus5 0 5
+/Minus10
+/Minus5
+0
+5
+10
+χ
+/Minus0.6
+/Minus0.4
+/Minus0.2
+0
+/Minus5 0 5
+/Minus10
+/Minus5
+0
+5
+10
+nz
+/Minus1.0
+/Minus0.5
+0
+0.5
+1.0
+FIG. 7. Normalized spin density and topological charge density
+at AsJ/D 2 = 0.4,HJ/D 2 = 1.2 (SkX phase) for the Rashba +
+Dresselhaus SOC with C2v symmetry. This plot shows the initial
+stage of charge splitting of skyrmions elongated along the mirror
+planes (xz and yz planes).
+064428-5UTKAN G ¨UNG ¨ORD ¨U et al. PHYSICAL REVIEW B 93, 064428 (2016)
+− 5 0 5
+− 10
+− 5
+0
+5
+10
+nz
+−1.0
+−0.5
+0
+0.5
+1.0
+− 5 0 5
+− 10
+− 5
+0
+5
+10
+χ
+−0.8
+−0.6
+−0.4
+−0.2
+0
+FIG. 8. Normalized spin density and topological charge density
+at AsJ/D 2 = 0.6,HJ/D 2 = 1.3 (SC phase) for the Rashba +
+Dresselhaus SOC with C2v symmetry. The vortices and antivortices
+are noticeably elongated.
+SP, as can seen in Fig. 9. It turns out that the SP phase also
+takes over the tilted FM region (in which the spin density
+is n
+z =− H/2As ) due to the fact that such form of DM
+interaction favors in-plane spirals (Fig. 10) and this allows
+exchange and DM interactions to lower the average energy
+density from F
+FM/A = Asn2
+z + Hnz (note that the in-plane
+component of the spin density does not contribute at all) where
+F
+FM is the free energy and A is the area of the system. The
+core of resulting skyrmions is shifted along the y axis as can
+be seen in Fig. 11. There is also a slight elongation along the
+y axis (around 2% for the parameters used in the ﬁgures).
+IV . DYNAMICS OF SKYRMIONS INDUCED
+BY SPIN CURRENTS
+Here we study the dynamics of skyrmions in response to
+spin currents. Spin currents naturally arise in a conducting
+ferromagnet in the presence of charge currents. Spin currents
+− 1.5
+SkX SP
+FM
+− 1.0 − 0.5 0.0 0.5 1.0 1.5
+0.0
+0.5
+1.0
+1.5
+2.0
+AsJ/D2
+HJ/D 2
+Easy-axis Easy-plane
+2.5
+2.02 .5
+3.0
+3.5
+4.0
+FIG. 9. Zero temperature phase diagram for the SOC with
+reﬂection symmetry [ ˆD =− D(0, sin θT , cos θT )T × with θT =
+tan−1(0.1) ≈ 5.7◦] which shows a SP phase with enhanced stability.
+The gray line separates the aligned and the tilted regions of the FM
+phase.
+− 6 − 4 − 2 0 2 4 6
+− 4
+− 2
+0
+2
+4
+6 nz
+−0.6
+−0.4
+−0.2
+0
+FIG. 10. Normalized spin density at AsJ/D 2 = 1.5,HJ/D 2 = 1
+(SP phase) for reﬂection symmetry, showing a mostly in plane spiral
+conﬁguration. When the easy-plane anisotropyA
+sJ/D 2 is increased,
+spirals become almost completely in-plane.
+can also arise in a ferromagnetic insulator in a form of magnon
+current as a response to a temperature gradient as we show in
+Appendix D by deriving the LLG equation from the stochastic
+LLG equation. In both cases, we can apply the following LLG
+equation:
+s(1 + αn
+s×) ˙ns = ns × Heff − (1 + βns×)( js · D)ns,
+(10)
+where s is the local spin density,β is the dissipative correction
+to the magnonic torque, js is the effective spin current
+induced either by charge carriers or by magnon currents,D =
+(Dx,Dy,Dz) is the chiral derivative [55,56], and ns represents
+the spin density whose dynamics is determined by the external
+magnetic ﬁeld, magnetic anisotropies, and spin currents. The
+form of the chiral derivative is determined by symmetries of
+the system. In the most simple case it can be determined by
+DM interactions, i.e.,D
+μ = ∂μ + ( ˆDeμ/J )× (see AppendixD
+for a detailed discussion for the case of magnon currents
+and [66] for charge currents). However, in the most general
+settings the tensor involved in the chiral derivative can be
+renormalized, e.g., due to various scattering processes.
+For describing the motion of skyrmions, we use Thiele’s
+approach [25,29–31,67–69] in which the motion of magnetic
+textures is constrained to a subspace described by the general-
+ized (collective) coordinatesq
+i in the form ns = ns [r − q(t)].
+− 5 0 5
+− 10
+− 5
+0
+5
+10
+χ
+−1.6
+−1.2
+−0.8
+−0.4
+0
+− 10 − 5 0 5 10
+− 10
+− 5
+0
+5
+10
+nz
+−1.0
+−0.5
+0
+0.5
+1.0
+FIG. 11. Normalized spin density and topological charge density
+at AsJ/D 2 = 1.3,HJ/D 2 = 1.5 (SkX phase) for reﬂection symme-
+try. The core of skyrmions is shifted (from the unit cell center which
+is at the origin) along the axis of reﬂection.
+064428-6STABILITY OF SKYRMION LATTICES AND SYMMETRIES . . . PHYSICAL REVIEW B 93, 064428 (2016)
+Under this assumption, the magnetic structure drifts as a
+whole while maintaining its internal structure: ˙ns becomes
+− ∑
+μ ˙qμ∂qμ ns and the equations of motion for qμ can be
+found by applying the operator
+∫
+cell d2 r(∂qμ ns ) · ns× to the
+LLG equation (10). We obtain the following equation for the
+generalized coordinate:
+s( ˆG + αˆη)v − ( ˆG1 + βˆη1) js = 0, (11)
+where v = ˙q denotes the speed of the skyrmion and
+[ ˆG]μν = 1
+4π
+∫
+d2 r(∂μ ns × ∂νns ) · ns =
+∫
+d2 rχ(r)ϵμνz,
+[ ˆG1]μν = 1
+4π
+∫
+d2 r(∂μ ns × Dνns ) · ns,
+(12)
+[ˆη]μν = 1
+4π
+∫
+d2 r(∂μ ns · ∂νns ),
+[ˆη1]μν = 1
+4π
+∫
+d2 r(∂μ ns · Dνns ),
+with μ,ν ∈{ x,y} and the integrations are over a single unit
+cell. The antisymmetric gyrotensor ˆG can be written as−Qz×,
+and we have ˆG = ˆG1. The damping dyadic tensors ˆη and ˆη1
+account for the effects of dissipation.
+For the rotationally symmetric case a skyrmion of radiusR
+will result in ˆη= η1 and ˆη1 = η11, with
+η= π
+∫ R
+0
+dr
+( sin2 nθ
+r + r(∂rnθ)2
+)
+,
+(13)
+η1 = η+ π
+∫ R
+0
+dr (sin nθ cos nθ + r∂rnθ),
+where nθ and nφ are the spherical coordinates of n, leading to
+the equation of motion
+(
+ηαsv − η1β js )
+− Qz × (sv − js ) = 0. (14)
+For the motion of skyrmions in response to a time-independent
+spin current alongx direction ( js = js ex ), this equation yields
+vx = js Q2 + αβηη1
+s(Q2 + α2η2),v y = jsQ βη1 − αη
+s(Q2 + α2η2), (15)
+that is, skyrmions will move along the spin current with an
+additional side motion, resulting in a Hall-like motion with
+Hall angle θH = tan−1(vy/vx )( s e eF i g .12).
+In cases lacking the rotational symmetry, the dissipation
+tensor can be diagonalized as ˆ η′ = ˆRz ˆη ˆRT
+z = diag(η′
+xx ,η′
+yy )
+by a proper rotation ˆRz around the z axis that aligns the
+basis vectors with the preferred directions due to the broken
+symmetry. ˆR
+z also diagonalizesη′
+1. Such a transformation does
+not affect ˆG since [ ˆRz, ˆJz] = 0, thus the equation of motion in
+the new coordinate system becomes
+ˆη′αsv′ − ˆη′
+1β js′ − Qz × (sv′ − js′) = 0, (16)
+or
+Qz × (sv′ − js′) −
+( η′
+xx 0
+0 η′
+yy
+)
+αsv′
++
+( η1′
+xx 0
+0 η′
+1yy
+)
+β js′ = 0, (17)
+where js′ = ˆRz js and v′ = ˆRzv.
+FIG. 12. Motion of Q = 1 skyrmions due to spin current along
+the x axis, simulated by the LLG equation with the torque term,
+Eq. ( 10). Skyrmions move along the spin current (e.g., toward
+the hotter region for the case of magnon-mediated torques) ( +x
+direction) with an additional side motion (−y direction). Skyrmions
+get deformed along the direction of motion.
+In SkX phase, interskyrmion interactions force the inter-
+skyrmion distance to a particular value. In the case when
+chiral derivative is given by D
+μ = ∂μ + [ ˆDeμ/J ]× this leads
+to ˆη′
+1 = 0 and θH =− Qαη(see Appendix E). However, this
+exact cancellation does not happen for isolated skyrmions
+in general and when the chiral derivative entering the LLG
+equation (10) is renormalized. Nevertheless, we observe that
+the renormalization of the dissipative tensor in Eq. (12) has to
+be taken into account, especially for skyrmion lattices. Such
+renormalization was not considered in the previous studies
+[19,23,25,27].
+Isolated skyrmions in a chiral magnet can be realized
+by increasing the magnetic ﬁeld in the SkX phase or by
+injection of spin currents. Such isolated skyrmions will exist as
+topologically protected defects [21,45,70], whose Hall motion
+is affected by the β-term as well [see, e.g., Eq. ( 14)]. On the
+other hand, for isolated skyrmions the interskyrmion distances
+become much larger compared to the skyrmion core size, for
+which we estimate ˆη
+1 ≈ ˆη. In the particular case of α = β
+(this case is realized for magnon-mediated torques for d = 2,
+see Appendix D), isolated skyrmions will move along the
+spin current without a side motion [see Eq. ( 15)], similar to
+antiferromagnetic skyrmions [26]. This can have implications
+for realizations of magnetic memories relying on skyrmions
+for information encoding.
+While the form of the SOC completely determines the
+helicity γ and topological charge Q of the skyrmions in SkX
+phase, in principle it is possible to create metastable skyrmions
+with different helicity γ
+′ and charge Q′. The dynamics of
+such skyrmions will be different in general: n in Eq. (12) will
+be replaced by ˆR′n, where ˆR′ = ˆRz(γ′ − γ)(−λ3)(1−QQ′)/2,
+which in turn means ˆG → det( ˆR′) ˆG, ˆG1 → det( ˆR′) ˆG1,
+η→ η, and η1 → ˆR′T (η1 − η) + η.
+Note that we consistently keep only the ﬁrst order terms in
+SOC strength and assume a smooth magnetic texture. In sharp
+064428-7UTKAN G ¨UNG ¨ORD ¨U et al. PHYSICAL REVIEW B 93, 064428 (2016)
+textures, there could be additional damping terms of the order
+of (D/J )2 whose overall effect is to renormalize the elements
+of ˆη [37,71]. Similar corrections can occur when the magnon
+wavelength is comparable to the texture size [72].
+V . CONCLUSIONS
+In this work we have studied SkX and SC crystals at
+temperatures that are much lower than the Curie temperature.
+Similar studies of magnetic skyrmions so far have been
+limited to systems with high symmetry. A previous study
+concluded that SkX phase does not exist in a system with both
+Rashba and Dresselhaus SOC, but uniaxial anisotropy was not
+present in their model [65]. As we have shown, SkX phase is
+present even in systems with reduced symmetries; however, the
+skyrmions become asymmetric. In fact, we have established
+a clear connection between the symmetries of skyrmions
+and the corresponding DM interactions (see, e.g., Fig. 2).
+In addition, we have found that reduced symmetries result
+in enhanced stability of vortex-antivortex lattices and spirals,
+even in the absence of an external magnetic ﬁeld. This behavior
+has also been reported in [ 17] for MnSi ( ˆD = 1). In our
+Monte Carlo simulations, we have observed anisotropy-driven,
+ﬁrst order phase transitions between FM, SkX, SC, and SP
+phases.
+We have also studied the dynamics of skyrmions and
+SkX (SC) lattices induced by spin currents where the spin
+current is induced by charge carriers or by magnons. We
+have found striking differences between the motion of lattices
+and isolated skyrmions. This difference arises due to a
+renormalization of the dissipative dynamics of SkX and SC
+lattices and can be expressed via the chiral derivative. On the
+other hand, this renormalization is not important for isolated
+skyrmions. As a consequence, our theory indicates that under
+certain conditions, isolated skyrmions can move along the
+current without a side motion, similar to antiferromagnetic
+skyrmions. This can have implications for realizations of
+magnetic memories relying on skyrmions for information
+encoding.
+Our results apply to monolayers as well as quasi-2D layers
+thinner than the pitch of out-of-plane spirals with the length
+scale J/D [6,13,24,52,62].
+To conclude, our results relate different SkX and SC
+phases to the symmetries of materials used for realizations
+of skyrmions. This will give clear directions for experimental
+realizations of SkX and SC phases, and will allow engineering
+of skyrmions with unusual properties.
+ACKNOWLEDGMENTS
+We thank Mohit Randeria for bringing to our attention
+Ref. [ 62]. This work was supported in part by the DOE
+Early Career Award DE-SC0014189, and by the NSF under
+Grants No. Phy-1415600, No. PHY11-25915, and No. DMR-
+1420645. O.A.T. acknowledges support by the Grants-in-Aid
+for Scientiﬁc Research (No. 25800184, No. 25247056, and No.
+15H01009) from the Ministry of Education, Culture, Sports,
+Science and Technology (MEXT) of Japan and SpinNet. K.B.
+acknowledges support from NSF Grant No. DMR-1308751.
+APPENDIX A: DZY ALOSHINSKII-MORIY A
+INTERACTION IN ITINERANT FERROMAGNETS
+The discussion in this Appendix is relevant to itinerant
+ferromagnets with DM interactions, e.g., thin magnetic ﬁlms
+realized experimentally in Refs. [ 48,49]. The effective free
+energy of a quasi-two-dimensional (2D) chiral magnet can
+be obtained starting from the 2D Rashba Hamiltonian with a
+general spin-orbit interaction term
+ˆH = p
+2
+2m + (ˆα p) · σ. (A1)
+Here the tensor ˆ α describes SOC, p is the in-plane 2D
+electron momentum, σ = (σx,σy,σz). Note that SOC can
+be related to DM interactions by relation ˆ α = ℏ/(2mJ ) ˆD.
+The Coulomb interactions resulting in the magnetic state
+are spin independent. Thus, we can eliminate the spin-orbit
+interaction using a local SU(2) gauge transformation [ 55]
+ˆU = exp(−iϕu · σ/2) to obtain
+ˆU
+† ˆH ˆU = p2
+2m + O(ϕ2), (A2)
+where u = ˆDr/| ˆDr| is a unit vector along the axis of rotation,
+r is the in-plane position vector, and the angle ϕ = ℏ| ˆDr|/J
+is proportional to the strength of the spin-orbit interaction. In
+the remainder of this Appendix, we will neglect higher order
+terms in ϕ given that SOC is a relativistic effect.
+The free energy density corresponding to the system in
+the rotated frame is given by F
+0 = ∑
+μ=x,y J (∂μ ¯n)2/2, where
+J is the strength of the exchange interaction of the magnetic
+state with the order parameter¯n originating from the Coulomb
+interactions. The original and rotated frames are related to
+each other by an SO(3) rotation:n = ˆR ¯n, where ˆR = exp(ϕu ·
+J) = exp(φu×), J = ( ˆJ
+x, ˆJy, ˆJz) and
+ˆJx =
+⎛
+⎝
+00 0
+00 −1
+01 0
+⎞
+⎠ , ˆJy =
+⎛
+⎝
+001
+000
+−100
+⎞
+⎠ ,
+ˆJz =
+⎛
+⎝
+0 −10
+100
+000
+⎞
+⎠ (A3)
+are the generators of the fundamental representation of SO(3).
+( ˆU and ˆR represent the same rotation in spin and real space,
+respectively.) Since the gauge transformation is not a global
+one, we obtain a nontrivial covariant (often called chiral in this
+context) derivative D
+μ,
+Dμ = ∂μ + ˆR∂μ ˆRT = ∂μ + ( ˆDeμ/J ) ×, (A4)
+which replaces the spatial derivative∂μ and captures the linear
+effects of SOC. The continuous free energy density in the
+original frame is then found to be
+F
+0 =
+∑
+μ=x,y
+J
+2 (Dμ n)2 ≈
+∑
+μ=x,y
+J
+2 (∂μ n)2 + ( ˆDeμ) · (n × ∂μ n).
+(A5)
+APPENDIX B: TIGHT-BINDING MICROSCOPIC MODEL
+In this Appendix we derive the free energy based on a
+tight-binding microscopic model. Such microscopic model
+064428-8STABILITY OF SKYRMION LATTICES AND SYMMETRIES . . . PHYSICAL REVIEW B 93, 064428 (2016)
+can be relevant to realizations of magnetic systems at oxide
+interfaces [50,51]. We describe our system by the tight-binding
+Anderson-Hasegawa Hamiltonian ˆH = ˆHt + ˆHSO + ˆHint on a
+square lattice [52]:
+ˆHt =− t
+∑
+⟨i,j⟩,α
+c†
+iαcjα + H.c.,
+ˆHSO =− iλSO
+∑
+⟨i,j⟩,αβ
+c†
+iαcjβDij · σαβ + H.c., (B1)
+ˆHint = J
+∑
+ij
+Si · Sj − 2JH
+∑
+i
+si · Si,
+where ˆHt is the nearest-neighbor hopping term, ˆHSO is the
+spin-orbit coupling, ˆHint is the interaction Hamiltonian, J is
+superexchange energy,JH is Hund’s coupling energy,c†
+iα (ciα)
+creates (annihilates) an itinerant fermion with spin α at lattice
+site i, Dij = ˆDeij/D, σ = (σx,σy,σz), eij is a unit vector from
+site i to j, ∑
+⟨i,j⟩ denotes summation over nearest neighbors,
+si = ∑
+αβc†
+iασαβciβ/2, and Si denotes lattice-localized spins.
+The SOC coupling can be gauged away by a rotation in the
+spin space, which rotates the ﬁrst site by an angle φij deﬁned
+through tan φij = (| ˆDeij|/D)(λSO/t ) and the second site by
+−φij around the axis uij = ˆDeij/| ˆDeij|:
+¯ciα = [ ˆUij ]†
+αβciα, ¯cjβ = [ ˆUij ]αβcjβ, ˆUij = eiφij uij ·σ/2.
+(B2)
+In terms of the rotated operators, H becomes
+ˆH =− ¯t
+∑
+⟨i,j⟩,α
+¯c†
+iα ¯cjα +
+∑
+⟨i,j⟩
+J ¯Si · ¯Sj − 2JH ¯si · ¯Sj δij
+=− ¯t
+∑
+⟨i,j⟩,α
+¯c†
+iα ¯cjα +
+∑
+⟨i,j⟩
+J
+( ˆRT
+ij Si
+)
+· ( ˆRij Sj )
+− 2JH
+( ˆRT
+ij si
+)
+· ( ˆRij Sj )δij, (B3)
+where ¯t =
+√
+t2 + λ2
+SO and ˆRij ∈ SO(3) represents the same
+rotation as ˆUij in the three-dimensional Euclidean space: a
+rotation by −φij around the uij axis, which can be written as
+ˆRij = cos φij 1 + (1 − cos φij )uij uT
+ij − sinφij uij ×. (B4)
+In the limit of large JH and classical spins ¯Si , Hamiltonian
+(B3) corresponds to effective exchange interaction between
+localized spins given by [73]
+−JF
+∑
+⟨i,j⟩
+√
+1 + ¯Si · ¯Sj /2S2, (B5)
+where S is the magnitude of the local spins, JF = K¯t, and
+K is a constant related to the density of itinerant electrons.
+Expanding the square root and using ( ˆRT
+ij Si ) · ( ˆRij Sj ) = Si ·
+( ˆR2
+ij Sj ) along with Eq. (B4) and considering nearest-neighbor
+interactions, we obtain the Hamiltonian
+ˆH =
+∑
+i,μ=x,y
+−Jμ Si · Si+μ − Dμ uμ · (Si × Si+μ)
+− Aμ
+c (uμ · Si )(uμ · Si+μ), (B6)
+with Jμ =− J cos 2φμ, Aμ
+c = Jo(1 − cos 2φμ), and Dμ =
+J sin 2φμ. Since φμ ∼ λSO/t ≪ 1, we obtain the relation
+AcJ/D 2 ≈ 1/2, where Ac ≈ Aμ
+c (D/| ˆDeμ|)2.
+The continuous free energy density corresponding to this
+lattice tight-binding model is
+F =
+∑
+μ=x,y
+J
+2 (∂μ n)2 + ( ˆDeμ) · (n × ∂μ n)
+− Ac
+[
+(Dμ · n)2 − 1
+2(Dμ · ∂μ n)2 − 1
+2(|Dμ|∂μ n)2
+]
+.
+(B7)
+Using J/D as the new unit of length, the free energy density
+can be rewritten in the dimensionless form
+F0 =
+∑
+μ=x,y
+1
+2(∂μ n)2 + Dμ · (n × ∂μ n) − AcJ
+D2 (Dμ · n)2
++ AcJ
+D2
+1
+2
+( D
+J
+) 2
+[(Dμ · ∂μ n)2 + (|Dμ|∂μ n)2]( B 8 )
+in units ofJ . After adding the uniaxial anisotropy and Zeeman
+energies as well as dropping the term (D/J )2 ∼ (λSO/t )2 ≪ 1,
+this free energy density shares the symmetries of the one
+given by Eq. ( 3). They become equivalent for ˆD =− J
+z or
+ˆD =− 1 leading to a uniaxial anisotropy with a renormal-
+ized strength As → As + Ac. In the case of C2v symmetry
+discussed in Sec. III, there is an additional anisotropy term
+Ac2DRDD(D2
+R + D2
+D)−1(n2
+x − n2
+y ) which is compatible with
+C2v symmetry. For the case with only reﬂection symmetry, the
+leading anisotropy term is Ac2θT nz(nx cos φT + ny sinφT ),
+where θT and φT are spherical angles describing the tilting
+vector nT ; as one would expect, the additional term respects
+the reﬂection symmetry. We numerically found that for small
+D
+D/DR or θT there is no signiﬁcant difference in the phase
+diagrams due to additional anisotropy terms.
+APPENDIX C: V ARIA TIONAL ESTIMA TE
+In order to obtain an initial rough estimate for the phase
+diagram, we minimize the average free energy density
+F
+A = 1
+A
+∫
+A
+d2 rF(n(r)) (C1)
+by comparing the energies corresponding to ferromagnetic,
+SkX, SC, and SP ansatzs. For each ansatz we optimize the
+parameters that yield the minimal energy.
+Skyrmion lattice. We assume a simple form of azimuthally
+symmetric skyrmion and linearly interpolate then
+θ component
+of the spin density:
+nSkX = (sin nθ cos nφ, sin nθ sinnφ, cos nθ)T , (C2)
+with nθ =− πr/R and nφ = Qφ + γ. The optimal values of
+R (skyrmion size), Q ∈{ −1,1} (topological charge) and γ
+(helicity) are found by minimization. In the reduced symmetry
+cases, the accuracy of this azimuthally symmetric ansatz
+becomes less accurate as the asymmetry is increased. In
+principle, this can be remedied by adding a constant component
+to n
+SkX along a preferred direction.
+064428-9UTKAN G ¨UNG ¨ORD ¨U et al. PHYSICAL REVIEW B 93, 064428 (2016)
+Spiral. MC simulations show that depending on ˆD,s p i r a l s
+can be coplanar or in-plane. To capture both kinds of spirals,
+we assume the ansatz
+n
+SP = eu cos(q · r) + ev sin(q · r)( C 3 )
+for the spiral phase with eu · ev = 0. Minimization is done
+with respect to eu, ev, and q.
+Ferromagnetic. There are two types of uniform ferromag-
+netic phase that appear as the solution of equation:
+Asn2
+z − Hnz = 0. (C4)
+The ﬁrst case is the aligned ferromagnetic phase with nz =
+−1 with energy As + H . In the tilted ferromagnetic phase,
+we have nz =− H/2As > −1 and the energy is −H 2/4As .
+The resulting phase diagrams coarsely agree with the results
+obtained from using LLG equation and MC.
+APPENDIX D: LLG EQUA TION WITH MAGNONIC
+TORQUES
+In this Appendix we give a derivation of the LLG equation
+(10) when the spin current and torque originate from magnon
+currents. The presentation here follows closely [15,16,74] and
+extends the result in [75] to systems with DM interaction.
+We assume that the time scale of the magnetization dynam-
+ics determined by external magnetic ﬁelds, anisotropies, and
+currents is slow compared to the time scale of thermal magnons
+deﬁned by the temperature. We also assume that the thermal
+magnon wavelength is smaller than the typical size of the
+magnetic texture, i.e., skyrmion. Magnetization dynamics of
+a ferromagnet well below Curie temperature can be described
+by the stochastic LLG equation
+s(1 + αn×) ˙n = n × (H
+eff + h), (D1)
+where s is the spin density, n = n(r,t) is a unit vector along
+spin density, Heff =− δnF is the effective magnetic ﬁeld, and
+h is the random Langevin ﬁeld at temperature T that satisﬁes
+the ﬂuctuation-dissipation theorem with the correlator
+⟨hi (r,t)hj (r,t)⟩= 2αsT (r)δijδ(r − r′)δ(t − t′). (D2)
+Here α is the Gilbert damping coefﬁcient and we assume a
+uniform temperature gradient along the x axis, ∂xT = const.
+We separate the spin density n into small and fast
+oscillations ns with time scale 1 /ωk (ωk is the magnon
+frequency) on top of the slow spin density dynamics nf
+whose time scale is deﬁned by external magnetic ﬁelds,
+anisotropies, and currents. These two orthogonal (that is,
+nf · ns = 0) components are related to spin density by
+n =
+√
+1 − n2
+f ns + nf by deﬁnition, and |ns|=| n|= 1. We
+now switch to a coordinate system where the z axis points
+along ns through a local SO(3) gauge transformation ˆRs =
+exp(/Psi1ˆJz)e x p (/Theta1ˆJy )e x p (/Phi1ˆJz), where /Psi1,/Theta1, and /Phi1are Euler
+angles. In what follows we set /Psi1= 0. In this coordinate
+system, the spin density becomes n′ = ˆRs n and the covariant
+derivative is∂ν − ˆAν with ˆAν = (∂ν ˆRs ) ˆRT
+s = Aν× and Aν =
+(− sin /Theta1∂ν/Phi1,∂ν/Theta1,cos /Theta1∂ν/Phi1), and ν= t,x,y,z denotes time
+and space coordinates. By treating Aν as a (ﬁctitious) vector
+potential, we ﬁx the gauge. In the new frame nf lies in the
+x′-y′ plane which can be represented by a complex number as
+nf = nx′ + iny′ . The LLG equation in this frame for the fast
+dynamics is given by
+is
+[
+(1 − iα)∂t − iAz
+t
+]
+n+ =J
+(
+i∂μ + Az
+μ − dz
+μ
+)2
+n+ + Hn+,
+(D3)
+where dμ = ˆDeμ/J and we assumed exchange interactions
+are dominant over various anisotropy terms and the coupling
+between the circular components n
+f and n∗
+f can be ignored
+[15,76]. The right-hand side of this equation can be read
+as follows: the gauge ﬁelds − Aμ and ˆDeμ/J , respectively,
+account for aligning n′
+s with the z′ axis and introducing the
+DM interaction; the gauge potentials can be merged into an
+overall covariant derivative D
+′
+μ ≈ ∂μ + (− Aμ + ˆDeμ/J )×,
+where we kept only the ﬁrst order terms in D/J , ∂μ/Theta1, and
+∂μ/Phi1. Equation (D3) describes thermal magnons with spectrum
+ωk = [H + J (k − k0)2 − Jk 2
+0 ]/s and magnon current jμ =
+J Im(n∗
+f ∂μnf ). Here k0 is the momentum shift induced by
+the DM interaction and magnetic texture. Formally, Eq. ( D3)
+describes the motion of charged particles due to ﬁctitious
+electric and magnetic ﬁelds E
+μ = n′
+s · (∂t n′
+s × ∂μ n′
+s ) and Bi =
+−(ϵijk /2)n′
+s · (∂j n′
+s × ∂k n′
+s ).
+We are now in a position to calculate the force exerted by
+the fast oscillations on the slow spin density dynamics. For
+simplicity, we assume that the slow magnetic texture is static
+since the time dependence can be taken into account later on
+by Onsager reciprocity principle. The relevant terms in the
+total effective ﬁeld
+H
+eff = J
+(
+∂2
+μ n + 2
+ˆDeμ
+J × ∂μ n
+)
+− (H + 2Asnz)ez (D4)
+are exchange and DM terms because other terms average out
+due to rapid oscillations (summation overμ = x,y is implied),
+thus we obtain the expression for the torque
+T =⟨ n × Heff⟩−⟨ n⟩ns × Hs
+eff = J ns × S
+≈ J
+⟨
+nf × ∂2
+μ nf
+⟩
++ 2J⟨n × (∂μ ns )∂μ(ns · n)⟩
++ 2J⟨nf × (dμ × ∂μ nf )⟩, (D5)
+where we formally introduced S =− ns × T /J as the
+nonequilibrium transverse accumulation of magnon spins,
+⟨ ···⟩ denotes averaging over the fast oscillations induced
+by random ﬁelds, and H
+s
+eff =− δns F (⟨n⟩ns,⟨n⟩∂μ ns ). By
+dropping oscillatory terms that average out, we obtain
+S = 2⟨nf (∂μ ns · ∂μ nf )⟩− 2⟨ns (∂μ nf · ∂μ nf )⟩
++ 2⟨(ns × nf )(dμ · ∂μ nf )⟩. (D6)
+The fact that vectors S,nf ,∂μ ns,∂μ nf , and ns × nf are in
+the x′-y′ plane allows us to rewrite Eq. ( D6) using complex
+numbers, leading to
+S =− idμ⟨n+∂μn− ⟩− (∂μns )⟨n− ∂μn+⟩. (D7)
+S = Sx + iSy describes the components of spin accumulation
+leading to dissipative and nondissipative torques and −idμ
+represents dμ × ns (which also is a vector in the x′-y′ plane)
+as a complex number. For the steady state solution, we obtain
+⟨n±∂μn∓ ⟩=±
+∫ dd−1 kdω
+(2π)d
+⟨n±(k,ω,x)∂μn∓ (k′,ω′,x)⟩
+(2π)dδ(k − k′)δ(ω − ω′) ,
+(D8)
+064428-10STABILITY OF SKYRMION LATTICES AND SYMMETRIES . . . PHYSICAL REVIEW B 93, 064428 (2016)
+where d = 2,3 is the dimensionality of the magnet and
+n±(k,ω,x) =
+∫ dd−1ρdω
+(2π)d e∓i(ωt−ρ·k)n±(ρ,t)( D 9 )
+is the Fourier transform with respect to time and transverse
+coordinates. The δfunctions in the denominator are canceled
+by the stochastic ﬁeld
+⟨h∗(k,ω,x)h(k′,ω′,x)⟩
+4(2π)dαskB
+= T (x)δ(x − x′)δ(ω − ω′). (D10)
+Since we are interested in the linear response to the random
+Langevin ﬁeld h(k,ω,x), we set Az
+ν = 0i nE q .( D3) and the
+stochastic LLG equation ( D1) becomes the inhomogeneous
+Helmholtz equation
+J
+(
+∂2
+x + κ2)
+n− (k,ω,x) = h(k,ω,x), (D11)
+where κ2 = [(1 + iα)sω − H ]/J − k2 − k2
+0 . This equation
+corresponds to Eq. (D3) with an added stochastic term, and can
+be solved easily by employing Green’s function G(x − x0) =
+ieiκ|x−x0|/2κ. By substituting the solution into Eq. ( D8) and
+employing the quantum dissipation theorem, we ﬁnd
+T =− (Dμns )jx (1 + iβ), (D12)
+where Dμns represents Dμ ns as a complex number and
+jx = ∂xT
+T
+∫ dd k
+(2π)d τ(ϵ)ϵv2
+x (∂ϵf0), (D13)
+with τ(ϵ) = (2αω)−1, ϵ(k) = (Jk 2 + H )/s, vx = ∂ωk/∂kx ,
+and f0 = 1/[exp(ϵ/kBT ) − 1] is the Bose-Einstein equilib-
+rium distribution. The β term in Eq. (D12) corresponds to the
+dissipative correction with β/α = (d/2)F1(x)/F0(x) ∼ d/2
+with F0(x) =
+∫ ∞
+0 dϵϵ d/2−1ϵeϵ+x/(eϵ+x − 1)2 and F1(x) =∫ ∞
+0 dϵϵ d/2−1(ϵ + x)eϵ+x/(eϵ+x − 1)2 evaluated at the magnon
+gap x = ω0/kBT (for d> 2 and for small gaps, F1(x) =
+F0(x) = ζ(d/2)//Gamma1(1 + d/2), where ζ(x) is the Riemann zeta
+function, and /Gamma1(x) is the Euler gamma function [ 77]). The
+magnon current density is given by
+jμ =− kB (∂μT )F0/(6π2λℏα) (D14)
+for d = 3, where λ= √ ℏJ/sk BT is the thermal magnon
+wavelength, and
+jμ =− kB (∂μT )F0/(4πℏα) (D15)
+for d = 2. Using the spin-torque term given by Eq. (D12), we
+obtain the LLG equation with thermomagnonic torque
+s(1 + αs ns×) ˙ns = ns × Hs
+eff − (1 + βns×)( js · D)ns,
+(D16)
+where s =⟨ n⟩s is the renormalized spin density, Hs
+eff =
+−δns F (⟨n⟩ns,⟨n⟩∂μ ns ) is the effective ﬁeld, αs =⟨ n⟩α is the
+renormalized Gilbert damping, and js =− ℏ j is the spin
+current with polarization along ns carried by magnons.
+APPENDIX E: SCALING OF THE LA TTICE VECTORS
+In order to determine the ground state of the system at
+a given point ( A,H ) in the phase diagram, we compare the
+energies of relaxed SP, SC, SkX, and FM conﬁgurations. We
+use the LLG equation to simulate the spin dynamics and to
+relax the system starting from ansatz states [SP, SC, and SkX
+as given by Eq. (8), which are obtained by inspecting the results
+from MC]. We then compare the resulting average free energy
+densities and determine the actual phase.
+In each case we relax a single primitive cell with rectangular
+periodic boundary conditions. This, however, requires us to
+specify the cell size, which we do not know beforehand.
+To overcome this problem, we dynamically scale the spatial
+coordinates as x
+′ = axx and y′ = ayy such that the lattice
+vectors are scaled to their optimal values as we describe below.
+The dimensions of the primitive cell (Lx,Ly )i nt h e(x′,y′)
+coordinate system are chosen such that the ansatz (SkX, SC,
+SP) is compatible with periodic boundaries (that is, L
+x = π,
+Ly = π/
+√
+3 for SkX,Ly = Lx = π/2 for SC andLx = Ly =
+π for SP). The average free energy density is given by f =
+F/A, where
+F = J
+∫ Ly
+−Ly
+∫ Lx
+−Lx
+dx′dy′|J |F′,
+A =
+∫ Ly
+−Ly
+∫ Lx
+−Lx
+dx′dy′|J |,
+F′ =
+∑
+μ=x,y
+1
+2(aμ∂μ′ n)2 + ( ˆDeμ/D) · (n × aμ∂μ′ n)
++ HJ
+D2 nz + AsJ
+D2 n2
+z,
+|J |= 1
+axay
+. (E1)
+Here |J | is the Jacobian of the transformation. The optimal
+value of aμ is given by ∂aμ f = 0o r
+aμ =− 1
+2
+∫ Ly
+−Ly
+∫ Lx
+−Lx
+dx′dy′|J |( ˆDeμ/D) · (n × ∂μ′ n)
+∫ Ly
+−Ly
+∫ Lx
+−Lx
+dx′dy′|J |1
+2 (∂μ′ n)2
+.
+(E2)
+Starting from an ansatz conﬁguration n(0) given by Eq. (8),
+one can determine the optimal value ofa(0)
+μ using Eq. (E2) and
+relax the system using the overdamped LLG equation ( 7)f o r
+a period of time TR. This process yields the conﬁguration n(1)
+which is closer to the local minimum, and we can calculatea(1)
+μ
+using n(1). Eventually, |f [n(i+1),ai+1
+μ ] − f [n(i),ai
+μ]| vanishes
+as we approach the minimum.
+A corollary of Eq. (E2) is that at the equilibrium point,
+Fμ
+D
+2Fμ
+J
+=
+∫ Ly
+−Ly
+∫ Lx
+−Lx
+dx′dy′|J |( ˆDeμ/D) · (n × aμ∂μ′ n)
+2
+∫ Ly
+−Ly
+∫ Lx
+−Lx
+dx′dy′|J |1
+2 (aμ∂μ′ n)2
+=− 1,
+(E3)
+and since [ ˆη]μμ = 2Fμ
+J and [ ˆη1]μμ = 2Fμ
+J + Fμ
+D , we reach the
+conclusion that [ ˆη1]μμ = 0.
+We emphasize that this result is derived under the as-
+sumption of a periodic lattice and does not hold for isolated
+skyrmions in general.
+064428-11UTKAN G ¨UNG ¨ORD ¨U et al. PHYSICAL REVIEW B 93, 064428 (2016)
+[1] T. Skyrme, Nucl. Phys. 31, 556 (1962).
+[2] A. Bogdanov and A. Hubert, J. Magn. Magn. Mater. 138, 255
+(1994).
+[3] S. Muhlbauer, B. Binz, F. Jonietz, C. Pﬂeiderer, A. Rosch,
+A. Neubauer, R. Georgii, and P. Boni, Science 323, 915
+(2009).
+[ 4 ] U .K .R ¨oßler, A. N. Bogdanov, and C. Pﬂeiderer, Nature
+(London) 442, 797 (2006).
+[5] S. D. Yi, S. Onoda, N. Nagaosa, and J. H. Han,P h y s .R e v .B80,
+054416 (2009).
+[6] X. Z. Yu, Y . Onose, N. Kanazawa, J. H. Park, J. H. Han, Y .
+Matsui, N. Nagaosa, and Y . Tokura,Nature (London) 465, 901
+(2010).
+[7] F. N. Rybakov, A. B. Borisov, and A. N. Bogdanov, Phys. Rev.
+B 87, 094424 (2013).
+[8] S. Heinze, K. von Bergmann, M. Menzel, J. Brede, A. Kubetzka,
+R. Wiesendanger, G. Bihlmayer, and S. Bl¨ugel, Nat. Phys.7, 713
+(2011).
+[9] N. S. Kiselev, A. N. Bogdanov, R. Sch ¨a f e r ,U .K .R .L e r ,a n d
+U. K. R¨oßler, J. Phys. D. Appl. Phys. 44, 392001 (2011).
+[10] S. Seki, S. Ishiwata, and Y . Tokura, P h y s .R e v .B86, 060403
+(2012).
+[11] M. C. Ambrose and R. L. Stamps, New J. Phys. 15, 053003
+(2013).
+[12] M. Janoschek, F. Jonietz, P. Link, C. Pﬂeiderer, and P. B ¨oni,
+J. Phys. Conf. Ser. 200, 032026 (2010).
+[13] S. Buhrandt and L. Fritz, Phys. Rev. B 88, 195137 (2013).
+[14] X. Li, W. V . Liu, and L. Balents, P h y s .R e v .L e t t .112, 067202
+(2014).
+[15] A. A. Kovalev, Phys. Rev. B 89, 241101 (2014).
+[16] A. A. Kovalev, Phys. Rev. B 91, 239903(E) (2015).
+[17] J. H. Han, J. Zang, Z. Yang, J.-H. Park, and N. Nagaosa, Phys.
+Rev. B 82, 094429 (2010).
+[18] S. Banerjee, J. Rowland, O. Erten, and M. Randeria, Phys. Rev.
+X 4, 031045 (2014).
+[19] S.-Z. Lin, A. Saxena, and C. D. Batista,Phys. Rev. B91, 224407
+(2015).
+[20] F. B¨uttner, C. Moutaﬁs, M. Schneider, B. Kr¨uger, C. M. G¨unther,
+J. Geilhufe, C. v. K. Schmising, J. Mohanty, B. Pfau, S. Schaffert
+et al., Nat. Phys. 11, 225 (2015).
+[21] U. K. R¨oßler, A. A. Leonov, and A. N. Bogdanov,J. Phys. Conf.
+Ser.
+303, 012105 (2011).
+[22] Y . Tokunaga, X. Z. Yu, J. S. White, H. M. Rønnow, D. Morikawa,
+Y . Taguchi, and Y . Tokura,Nat. Commun. 6, 7638 (2015).
+[23] S.-Z. Lin, C. D. Batista, C. Reichhardt, and A. Saxena, Phys.
+Rev. Lett. 112, 187203 (2014).
+[24] M. N. Wilson, A. B. Butenko, A. N. Bogdanov, and T. L.
+Monchesky, Phys. Rev. B 89, 094411 (2014).
+[25] J. Iwasaki, M. Mochizuki, and N. Nagaosa, Nat. Commun. 4,
+1463 (2013).
+[26] J. Barker and O. A. Tretiakov, arXiv:1505.06156.
+[27] A. Fert, V . Cros, and J. Sampaio, Nat. Nanotechnol. 8, 152
+(2013).
+[28] F. Jonietz, S. Muhlbauer, C. Pﬂeiderer, A. Neubauer, W. Munzer,
+A. Bauer, T. Adams, R. Georgii, P. Boni, R. A. Duine et al. ,
+Science 330, 1648 (2010).
+[29] T. Schulz, R. Ritz, A. Bauer, M. Halder, M. Wagner, C. Franz,
+C. Pﬂeiderer, K. Everschor, M. Garst, and A. Rosch,Nat. Phys.
+8, 301 (2012).
+[30] N. Nagaosa and Y . Tokura,Nat. Nanotechnol. 8, 899 (2013).
+[31] R. Tomasello, E. Martinez, R. Zivieri, L. Torres, M. Carpentieri,
+and G. Finocchio, Sci. Rep. 4, 6784 (2014).
+[32] W. Koshibae, Y . Kaneko, J. Iwasaki, M. Kawasaki, Y . Tokura,
+and N. Nagaosa, Jpn. J. Appl. Phys. 54, 053001 (2015).
+[33] L. Kong and J. Zang, P h y s .R e v .L e t t .111, 067203 (2013).
+[34] M. Mochizuki, X. Z. Yu, S. Seki, N. Kanazawa, W. Koshibae,
+J. Zang, M. Mostovoy, Y . Tokura, and N. Nagaosa,Nat. Mater.
+13, 241 (2014).
+[35] A. Neubauer, C. Pﬂeiderer, B. Binz, A. Rosch, R. Ritz, P. G.
+Niklowitz, and P. B¨oni, Phys. Rev. Lett. 102, 186602 (2009).
+[36] N. Nagaosa, J. Sinova, S. Onoda, A. H. MacDonald, and N. P.
+Ong, Rev. Mod. Phys. 82, 1539 (2010).
+[37] J. Zang, M. Mostovoy, J. H. Han, and N. Nagaosa, Phys. Rev.
+Lett. 107, 136804 (2011).
+[38] C. Pﬂeiderer, S. R. Julian, and G. G. Lonzarich,Nature (London)
+414, 427 (2001).
+[39] N. Doiron-Leyraud, I. R. Walker, L. Taillefer, M. J. Steiner, S. R.
+Julian, and G. G. Lonzarich, Nature (London) 425, 595 (2003).
+[40] H. Watanabe, S. A. Parameswaran, S. Raghu, and A.
+Vishwanath, P h y s .R e v .B90, 045145 (2014).
+[41] I. Dzyaloshinsky, J. Phys. Chem. Solids 4, 241 (1958).
+[42] T. Moriya, Phys. Rev. 120, 91 (1960).
+[43] P. Bak and M. H. Jensen, J. Phys. C Solid State Phys. 13, L881
+(1980).
+[44] X. Z. Yu, N. Kanazawa, Y . Onose, K. Kimoto, W. Z. Zhang, S.
+Ishiwata, Y . Matsui, and Y . Tokura,Nat. Mater. 10, 106 (2011).
+[45] A. B. Butenko, A. A. Leonov, U. K. R¨oßler, and A. N. Bogdanov,
+Phys. Rev. B 82, 052403 (2010).
+[46] M. Bode, M. Heide, K. von Bergmann, P. Ferriani, S. Heinze,
+G. Bihlmayer, A. Kubetzka, O. Pietzsch, S. Bl ¨ugel, and R.
+Wiesendanger, Nature (London) 447, 190 (2007).
+[47] N. Romming, C. Hanneken, M. Menzel, J. E. Bickel, B. Wolter,
+K. von Bergmann, A. Kubetzka, and R. Wiesendanger, Science
+341, 636 (2013).
+[48] B. Dup ´e, M. Hoffmann, C. Paillard, and S. Heinze, Nat.
+Commun. 5, 4030 (2014).
+[49] C. Moreau-Luchaire, C. Moutaﬁs, N. Reyren, J. Sampaio,
+N. Van Horne, C. Vaz, K. Bouzehouane, K. Garcia, C.
+Deranlot, P. Warnicke et al. , Nat. Nanotechnol. (2016),
+doi:10.1038/nnano.2015.313.
+[50] J.-S. Lee, Y . W. Xie, H. K. Sato, C. Bell, Y . Hikita, H. Y . Hwang,
+and C.-C. Kao, Nat. Mater. 12, 703 (2013).
+[51] P. Moetakef, J. R. Williams, D. G. Ouellette, A. P. Kajdos, D.
+Goldhaber-Gordon, S. J. Allen, and S. Stemmer, P h y s .R e v .X
+2, 021014 (2012).
+[52] S. Banerjee, O. Erten, and M. Randeria, Nat. Phys. 9, 626
+(2013).
+[53] Y . Fan, P. Upadhyaya, X. Kou, M. Lang, S. Takei, Z. Wang, J.
+Tang, L. He, L.-T. Chang, M. Montazeri et al., Nat. Mater. 13,
+699 (2014).
+[54] Y . Tserkovnyak, D. A. Pesin, and D. Loss, Phys. Rev. B 91,
+041121 (2015).
+[55] K.-W. Kim, H.-W. Lee, K.-J. Lee, and M. D. Stiles, Phys. Rev.
+Lett. 111, 216601 (2013).
+[56] Y . Tserkovnyak and S. A. Bender, P h y s .R e v .B90, 014428
+(2014).
+[57] S. D. Ganichev and L. E. Golub,Phys. Status Solidi B251, 1801
+(2014).
+[58] O. A. Tretiakov and A. Abanov, P h y s .R e v .L e t t .105, 157201
+(2010).
+064428-12STABILITY OF SKYRMION LATTICES AND SYMMETRIES . . . PHYSICAL REVIEW B 93, 064428 (2016)
+[59] The symmetry classes with ˆD = ˆJz,1,ˆλ1,ˆλ3 are related to the
+3D classes classiﬁed by the Lifshitz invariants w1,w2,w′
+1,w′
+2,
+which were described in [78].
+[60] The Hamiltonian (see Appendix A) for Rashba and Dresselhaus
+SOC is more often represented asα(pxσy − pyσx ) + β(pxσx −
+pyσy )t h a nα(pxσy − pyσx ) + β(pxσy + pyσx ) in the literature.
+One can be transformed into another by an in-planeπ/4 rotation.
+We use the latter form in order to align the mirror symmetry
+planes with x and y axes, which is compatible with the periodic
+boundary conditions of our simulations.
+[61] In a 3D system, the cases ˆD =− D1
+3 =− Ddiag(1,1,1) and
+ˆD =− D ˆJz are not equivalent and result in different phase
+diagrams [62].
+[62] J. Rowland, S. Banerjee, and M. Randeria, P h y s .R e v .B93,
+020404 (2016).
+[63] D. Clarke, O. A. Tretiakov, and O. Tchernyshyov, P h y s .R e v .B
+75, 174433 (2007).
+[64] S. D. Ganichev, V . V . Belkov, L. E. Golub, E. L. Ivchenko,
+P. Schneider, S. Giglberger, J. Eroms, J. De Boeck, G.
+Borghs, W. Wegscheider et al. , P h y s .R e v .L e t t .92, 256601
+(2004).
+[65] J. H. Oh, K.-J. Lee, H.-W. Lee, and M. Shin, J. Phys.: Condens.
+Matter 26, 196005 (2014).
+[66] A. Matos-Abiague and R. L. Rodr ´ıguez-Su´arez, Phys. Rev. B
+80, 094424 (2009).
+[67] A. A. Thiele, P h y s .R e v .L e t t .30, 230 (1973).
+[68] O. A. Tretiakov, D. Clarke, G.-W. Chern, Y . B. Bazaliy, and O.
+Tchernyshyov, Phys. Rev. Lett. 100, 127204 (2008).
+[69] C. Sch ¨utte and M. Garst, Phys. Rev. B 90, 094423 (2014).
+[70] A. O. Leonov and M. Mostovoy,Nat. Commun. 6, 8275 (2015).
+[71] J.-V . Kim,P h y s .R e v .B92, 014418 (2015).
+[72] S. Schroeter and M. Garst, Low Temp. Phys. 41, 817 (
+2015).
+[73] P. W. Anderson and H. Hasegawa, Phys. Rev. 100, 675 (1955).
+[74] A. A. Kovalev and U. G ¨ung¨ord¨u, Europhys. Lett. 109, 67008
+(2015).
+[75] S. K. Kim and Y . Tserkovnyak,Phys. Rev. B92, 020410 (2015).
+[76] V . K. Dugaev, P. Bruno, B. Canals, and C. Lacroix, Phys. Rev.
+B 72, 024456 (2005).
+[77] R. K. Pathria, Statistical Mechanics , 2nd ed. (Butterworth-
+Heinemann, London, 1996).
+[78] A. Bogdanov and D. Yablonski ˘ı, Zh. Eksp. Teor. Fiz. 96, 253
+(1989).
+064428-13

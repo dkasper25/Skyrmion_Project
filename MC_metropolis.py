@@ -7,21 +7,32 @@ import os
 import time
 
 # Model parameters
-L = 50     # Lattice size L x L
-J = 1.0      # Ferromagnetic exchange
-D = 2      # Interfacial Dzyaloshinskii-Moriya Interaction (DMI)
-B = 0.2      # External magnetic field along z-axis
-K = 0.05     # Uniaxial anisotropy constant (easy-axis along z)
+L = 15     # Lattice size L x L
+J = 1      # Ferromagnetic exchange
+D = 0.5     # Interfacial Dzyaloshinskii-Moriya Interaction (DMI)
+
+# Dimensionless parameters from Gongordu PRB 2016 phase diagrams 
+# (e.g. Figure 3 for Rashba/Dresselhaus)
+h_scaled = 1.5  # Magnetic field (H*J / D^2). Try 0.8 for SkX phase.
+a_scaled = -0.5 # Easy-plane anisotropy (As*J / D^2). Try -0.2 for SkX phase.
+
+# Calculate physical parameters B and A from the scaled parameters
+B = h_scaled * (D**2 / J)    # External magnetic field along z-axis
+A = a_scaled * (D**2 / J)    # Anisotropy constant (easy-plane for A>0, easy-axis for A<0)
 T = 0.01      # Target Temperature (in units where kB=1)
 
-
+disp_mode = "quiver"
+# Colormap for the spins where 0 isn't white. 
+# Suggestions: 'viridis' (blue-green-yellow), 'plasma' (purple-orange-yellow), 
+#              'magma' (black-red-yellow), 'twilight' (cyclic, no white at 0), 'bwr' (blue-white-red)
+arrow_cmap = "magma" 
 
 @nb.njit
-def get_energy_diff(spins, ix, iy, S_new, L, J, D, B, K):
+def get_energy_diff(spins, ix, iy, S_new, L, J, D, B, A):
     """
     Calculate the energy difference for a proposed spin change at (ix, iy).
     Uses Periodic Boundary Conditions.
-    Hamiltonian H = -J * sum(S_i . S_j) - D * sum( (u_ij x z_hat) . (S_i x S_j) ) - B * sum(S_i_z) - K * sum((S_i_z)^2)
+    Hamiltonian H = -J * sum(S_i . S_j) - D * sum( (u_ij x z_hat) . (S_i x S_j) ) - B * sum(S_i_z) + A * sum((S_i_z)^2)
     """
     dS = S_new - spins[ix, iy]
     
@@ -52,10 +63,10 @@ def get_energy_diff(spins, ix, iy, S_new, L, J, D, B, K):
     # 3. Zeeman energy difference: dE_Z = -B * dS_z
     dE_Z = -B * dS[2]
     
-    # 4. Anisotropy energy difference: dE_K = -K * [(S_new_z)^2 - (S_old_z)^2]
-    dE_K = -K * (S_new[2]**2 - spins[ix, iy][2]**2)
+    # 4. Anisotropy energy difference: dE_A = A * [(S_new_z)^2 - (S_old_z)^2]
+    dE_A = A * (S_new[2]**2 - spins[ix, iy][2]**2)
     
-    return dE_ex + dE_dmi + dE_Z + dE_K
+    return dE_ex + dE_dmi + dE_Z + dE_A
 
 @nb.njit
 def cone_step(S, max_angle=0.2):
@@ -65,7 +76,7 @@ def cone_step(S, max_angle=0.2):
     return S_new / norm
 
 @nb.njit
-def mc_step(spins, L, J, D, B, K, T):
+def mc_step(spins, L, J, D, B, A, T):
     """Perform one full Monte Carlo sweep linearly over the lattice."""
     accepted = 0
     # Loop over all sites roughly once per step (N random attempts)
@@ -78,7 +89,7 @@ def mc_step(spins, L, J, D, B, K, T):
         S_new = cone_step(spins[ix, iy], 0.5) # 0.5 controls step size
         
         # Calculate energy difference
-        dE = get_energy_diff(spins, ix, iy, S_new, L, J, D, B, K)
+        dE = get_energy_diff(spins, ix, iy, S_new, L, J, D, B, A)
         
         # Metropolis criterion
         if dE < 0 or np.random.random() < np.exp(-dE / T):
@@ -101,8 +112,8 @@ def initialize_spins(L, state="ferro"):
                 spins[i, j] = [r*np.cos(phi), r*np.sin(phi), z]
     return spins
 
-def plot_spins(spins, step, current_T):
-    """Plot the spins as arrows in the xy plane, colored by Sz."""
+def plot_spins(spins, step, current_T, display_mode="heatmap", cmap_name="bwr"):
+    """Plot the spins as arrows in the xy plane."""
     plt.clf()
     L = spins.shape[0]
     
@@ -114,11 +125,20 @@ def plot_spins(spins, step, current_T):
     V = spins[:, :, 1].T
     Sz = spins[:, :, 2].T
     
-    # Plot quiver arrows colored by Sz
-    q = plt.quiver(X, Y, U, V, Sz, cmap='bwr', pivot='mid', scale=L * 0.8)
-    q.set_clim(-1, 1)  # Force constant colorbar scale
-    
-    plt.colorbar(q, label='Sz')
+    if display_mode == "heatmap":
+        # Plot background heatmap of Sz to ensure spins with U=0, V=0 are visible
+        im = plt.imshow(Sz, cmap=cmap_name, vmin=-1, vmax=1, origin='lower', extent=[-0.5, L-0.5, -0.5, L-0.5])
+        
+        # Plot quiver arrows for in-plane components
+        q = plt.quiver(X, Y, U, V, pivot='mid', scale=L, width=0.008)
+        
+        plt.colorbar(im, label='Sz')
+    elif display_mode == "quiver":
+        # Plot quiver arrows colored by Sz
+        q = plt.quiver(X, Y, U, V, Sz, cmap=cmap_name, pivot='mid', scale=L, width=0.008)
+        q.set_clim(-1, 1)  # Force constant colorbar scale
+        
+        plt.colorbar(q, label='Sz')
     plt.title(f'Lattice: {L}x{L}  |  T: {current_T:.3f}  |  Step: {step}')
     
     plt.xlim(-1, L)
@@ -126,7 +146,7 @@ def plot_spins(spins, step, current_T):
     plt.gca().set_aspect('equal')
     plt.pause(0.01)
 
-def run_simulation(save_mp4=True, video_filename="skyrmions.mp4", dpi=300):
+def run_simulation(save_mp4=True, video_filename="skyrmions.mp4", dpi=300, display_mode="heatmap", cmap_name="bwr"):
     # Determine the directory where this script lives
     script_dir = os.path.dirname(os.path.abspath(__file__))
     output_path = os.path.join(script_dir, video_filename)
@@ -148,11 +168,11 @@ def run_simulation(save_mp4=True, video_filename="skyrmions.mp4", dpi=300):
         # Annealing phase: cool down from T=1.0 down to target T over the first 6000 steps
         current_T = T + (1.0 - T) * max(0.0, (6000 - step)/6000.0) 
         
-        acceptance_rate = mc_step(spins, L, J, D, B, K, current_T)
+        acceptance_rate = mc_step(spins, L, J, D, B, A, current_T)
         
         if step % plot_every == 0:
             print(f"Step {step:4d} | Acc Rate: {acceptance_rate:.3f} | T: {current_T:.3f}")
-            plot_spins(spins, step, current_T)
+            plot_spins(spins, step, current_T, display_mode=display_mode, cmap_name=cmap_name)
             
             if save_mp4:
                 buf = io.BytesIO()
@@ -170,6 +190,8 @@ def run_simulation(save_mp4=True, video_filename="skyrmions.mp4", dpi=300):
 
 if __name__ == '__main__':
     time1 = time.time()
-    run_simulation(save_mp4=True)
+    # You can toggle display_mode between "heatmap" and "quiver"
+    filename = f"skyrmions_L{L}_A{a_scaled:.2f}_H{h_scaled:.2f}.mp4"
+    run_simulation(save_mp4=True, video_filename=filename, display_mode=disp_mode, cmap_name=arrow_cmap)
     time2 = time.time()
     print(f"Time taken: {time2 - time1}")
