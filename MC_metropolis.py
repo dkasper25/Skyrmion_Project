@@ -4,14 +4,17 @@ import numba as nb
 import io
 import imageio.v3 as iio
 import os
+import time
 
 # Model parameters
 L = 50     # Lattice size L x L
 J = 1.0      # Ferromagnetic exchange
-D = 0.5      # Interfacial Dzyaloshinskii-Moriya Interaction (DMI)
+D = 2      # Interfacial Dzyaloshinskii-Moriya Interaction (DMI)
 B = 0.2      # External magnetic field along z-axis
 K = 0.05     # Uniaxial anisotropy constant (easy-axis along z)
 T = 0.01      # Target Temperature (in units where kB=1)
+
+
 
 @nb.njit
 def get_energy_diff(spins, ix, iy, S_new, L, J, D, B, K):
@@ -123,7 +126,7 @@ def plot_spins(spins, step, current_T):
     plt.gca().set_aspect('equal')
     plt.pause(0.01)
 
-def run_simulation(save_mp4=True, video_filename="skyrmions.mp4"):
+def run_simulation(save_mp4=True, video_filename="skyrmions.mp4", dpi=300):
     # Determine the directory where this script lives
     script_dir = os.path.dirname(os.path.abspath(__file__))
     output_path = os.path.join(script_dir, video_filename)
@@ -153,7 +156,7 @@ def run_simulation(save_mp4=True, video_filename="skyrmions.mp4"):
             
             if save_mp4:
                 buf = io.BytesIO()
-                plt.savefig(buf, format='png', bbox_inches='tight')
+                plt.savefig(buf, format='png', bbox_inches='tight', dpi=dpi)
                 buf.seek(0)
                 frames.append(iio.imread(buf))
             
@@ -166,4 +169,7 @@ def run_simulation(save_mp4=True, video_filename="skyrmions.mp4"):
         print("Done!")
 
 if __name__ == '__main__':
+    time1 = time.time()
     run_simulation(save_mp4=True)
+    time2 = time.time()
+    print(f"Time taken: {time2 - time1}")
