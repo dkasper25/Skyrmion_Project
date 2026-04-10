@@ -7,97 +7,122 @@ import os
 # Part A: Ansatz Generators
 # ---------------------------------------------------------
 
-def init_SkX(L, Q=1, gamma=np.pi):
+def init_SkX(L, Q=1, gamma=0.0):
     """
-    Skyrmion Lattice (SkX) Ansatz
-    A singular skyrmion profile mapped onto the periodic L x L grid.
-    n_theta = -pi * r / R
-    n_phi = Q * phi + gamma
+    Hexagonal 3Q Skyrmion Lattice (SkX) Ansatz
+    A proper vector superposition of three cycloids to form an exact hexagonal lattice.
+    Mapped onto physical coordinates [-L_x/2, L_x/2] and [-L_y/2, L_y/2].
+    Returns spins, ax, ay
     """
     spins = np.zeros((L, L, 3))
-    R = L / 2.0  # Skyrmion radius (fits within the cell)
+    
+    ax = np.pi / L
+    ay = (np.pi / np.sqrt(3)) / L
+    
+    # We use q=4.0 so that exactly two complementary skyrmions precisely fit 
+    # the periodic rectangular unit cell (L_x = pi, L_y = pi/sqrt(3)).
+    # Dynamic scaling (ax, ay) during LLG will natively expand this to the optimal physical period.
+    q_ansatz = 4.0 
+    
+    # Base offset to ensure SkX background matches the FM -z state for stability
+    # Superposition varies from -1.5 to +3.0. A -1.5 offset makes it vary from -3.0 to +1.5.
+    M0 = -1.5 
     
     for i in range(L):
         for j in range(L):
-            # Coordinates relative to center
-            dx = i - L/2 + 0.5
-            dy = j - L/2 + 0.5
+            x = (i - L/2 + 0.5) * ax
+            y = (j - L/2 + 0.5) * ay
             
-            r = np.sqrt(dx**2 + dy**2)
-            phi = np.arctan2(dy, dx)
+            # The three k-vectors for the hexagonal Brillouin zone
+            W1 = q_ansatz * x
+            W2 = q_ansatz * (-0.5 * x + (np.sqrt(3)/2) * y)
+            W3 = q_ansatz * (-0.5 * x - (np.sqrt(3)/2) * y)
             
-            # If outside the skyrmion core radius, it points fully down (FM background is -z)
-            # Wait, the paper formula n_theta = -pi*r/R. At r=0, theta=0 (+z). At r=R, theta=-pi (-z)
-            if r <= R:
-                theta = -np.pi * r / R
+            nz = M0 + np.cos(W1) + np.cos(W2) + np.cos(W3)
+            
+            # Néel skyrmion: in-plane components are parallel to the q-vectors. 
+            # Subtracted mathematically so DMI chirality stabilizes negatively (matches our q=-2 fix for SP).
+            sign = -1.0 
+            nx = sign * (np.sin(W1)*1.0 + np.sin(W2)*(-0.5) + np.sin(W3)*(-0.5))
+            ny = sign * (np.sin(W1)*0.0 + np.sin(W2)*(np.sqrt(3)/2) + np.sin(W3)*(-np.sqrt(3)/2))
+            
+            norm = np.sqrt(nx**2 + ny**2 + nz**2)
+            if norm == 0:
+                spins[i, j, 2] = -1.0
             else:
-                theta = -np.pi # Fully down (or up depending on convention)
+                spins[i, j, 0] = nx / norm
+                spins[i, j, 1] = ny / norm
+                spins[i, j, 2] = nz / norm
                 
-            phi_spin = Q * phi + gamma
-            
-            spins[i, j, 0] = np.sin(theta) * np.cos(phi_spin)
-            spins[i, j, 1] = np.sin(theta) * np.sin(phi_spin)
-            spins[i, j, 2] = np.cos(theta)
-            
-    return spins
+    return spins, ax, ay
 
 def init_SP(L):
     """
     Spiral Phase (SP) Ansatz
-    Rashba DMI stabilizes a cycloid. Spins rotate in the x-z plane along the x-direction.
+    Mapped onto physical coordinates [0, L_x] and [0, L_y].
+    Returns spins, ax, ay
     """
     spins = np.zeros((L, L, 3))
-    q = 2 * np.pi / L # Positive q to match the Rashba DMI chirality
+    
+    ax = np.pi / L
+    ay = np.pi / L
+    
+    # We use q=2.0 since the cos/sin phase arrangement naturally yields negative DMI
+    q = 2.0 
     
     for i in range(L):
         for j in range(L):
-            x = i
-            # e_u = z_hat, e_v = x_hat for cycloid
-            # n = e_u * cos(q*x) + e_v * sin(q*x)
-            spins[i, j, 0] = np.sin(q * x)
+            x = i * ax
+            spins[i, j, 0] = np.cos(q * x)
             spins[i, j, 1] = 0.0
-            spins[i, j, 2] = np.cos(q * x)
+            spins[i, j, 2] = np.sin(q * x)
             
-    return spins
+    return spins, ax, ay
 
 def init_SC(L):
     """
     Square Cell (SC) Vortex-Antivortex Phase Ansatz
-    A superposition of two orthogonal cycloids (one along x, one along y).
+    Mapped onto physical coordinates [0, L_x] and [0, L_y].
+    Returns spins, ax, ay
     """
     spins = np.zeros((L, L, 3))
-    q = 2 * np.pi / L
+    
+    ax = (np.pi / 2.0) / L
+    ay = (np.pi / 2.0) / L
+    
+    # We use q=4.0 (+4.0) because the user's specific sin/cos permutation natively yields negative DMI
+    q = 4.0 
     
     for i in range(L):
         for j in range(L):
-            x = i
-            y = j
+            x = i * ax
+            y = j * ay
             
-            # Spiral 1 (along x): cycloid in xz plane
-            n1_x = np.sin(q * x)
+            # Wave 1: Propagates along x
+            n1_x = np.cos(q * x)
             n1_y = 0.0
-            n1_z = np.cos(q * x)
+            n1_z = np.sin(q * x)
             
-            # Spiral 2 (along y): cycloid in yz plane
+            # Wave 2: Propagates along y
             n2_x = 0.0
-            n2_y = np.sin(q * y)
-            n2_z = np.cos(q * y)
+            n2_y = np.cos(q * y)
+            n2_z = np.sin(q * y)
             
-            # Superposition
             n_sum_x = n1_x + n2_x
             n_sum_y = n1_y + n2_y
             n_sum_z = n1_z + n2_z
             
-            # Position-dependent normalization constraint |n| = 1
             norm = np.sqrt(n_sum_x**2 + n_sum_y**2 + n_sum_z**2)
+            
+            # Normalization (Crucial Step)
             if norm == 0:
-                spins[i, j, 2] = 1.0 # Fallback
+                spins[i, j, 2] = -1.0 # Fallback aligned to negative H field preference
             else:
                 spins[i, j, 0] = n_sum_x / norm
                 spins[i, j, 1] = n_sum_y / norm
                 spins[i, j, 2] = n_sum_z / norm
                 
-    return spins
+    return spins, ax, ay
 
 def load_npy_ansatz(filepath, L):
     """Fallback to load MC output if requested."""
@@ -113,25 +138,27 @@ def load_npy_ansatz(filepath, L):
 # ---------------------------------------------------------
 
 @nb.njit
-def relax_phase_numba(spins, L, H_scaled, A_scaled, max_steps=50000, tol=1e-7, ax_in=1.0, ay_in=1.0, prev_f_in=0.0):
+def relax_phase_numba(spins, L, H_scaled, A_scaled, max_steps=50000, tol=1e-7, ax_in=1.0, ay_in=1.0, prev_f_in=0.0, max_dt=0.05, cfl_factor=0.25, global_step_start=0):
     """
-    Perform the full overdamped LLG integration natively in Numba.
+    Perform the full overdamped LLG integration natively in Numba using Heun (RK2) method.
     This avoids Python overhead and memory allocations at every step, making it ~100x faster.
     """
     ax = ax_in
     ay = ay_in
     prev_f = prev_f_in
-    dt = 0.05 
+    dt = max_dt 
     
-    # Pre-allocate buffers for ping-pong swapping
+    # Pre-allocate buffers for ping-pong swapping and predictor state
     spins_current = spins.copy()
     spins_next = np.empty_like(spins)
+    spins_pred = np.empty_like(spins)
+    ndot_current = np.empty_like(spins)
     
     f_tot = 0.0
     
     for step in range(max_steps):
         # Dynamic timestep bounded by Von Neumann stability analysis (CFL condition)
-        dt = min(0.05, 0.25 * min(ax, ay)**2)
+        dt = min(max_dt, cfl_factor * min(ax, ay)**2)
         
         # Energy accumulators (unscaled)
         E_ex_x = 0.0
@@ -141,62 +168,70 @@ def relax_phase_numba(spins, L, H_scaled, A_scaled, max_steps=50000, tol=1e-7, a
         E_z = 0.0
         E_a = 0.0
         
+        # --- PASS 1: Predictor Step ---
         for i in range(L):
             for j in range(L):
                 # Periodic neighbors
-                i_next = (i + 1) % L
-                i_prev = (i - 1 + L) % L
-                j_next = (j + 1) % L
-                j_prev = (j - 1 + L) % L
+                i_right = (i + 1) % L
+                i_left = (i - 1 + L) % L
+                j_up = (j + 1) % L
+                j_down = (j - 1 + L) % L
                 
                 # Unroll vectors heavily to optimize C-compilation
-                n0 = spins_current[i, j, 0]
-                n1 = spins_current[i, j, 1]
-                n2 = spins_current[i, j, 2]
+                n_x = spins_current[i, j, 0]
+                n_y = spins_current[i, j, 1]
+                n_z = spins_current[i, j, 2]
                 
-                nx_next_0, nx_next_1, nx_next_2 = spins_current[i_next, j, 0], spins_current[i_next, j, 1], spins_current[i_next, j, 2]
-                nx_prev_0, nx_prev_1, nx_prev_2 = spins_current[i_prev, j, 0], spins_current[i_prev, j, 1], spins_current[i_prev, j, 2]
+                n_right_x, n_right_y, n_right_z = spins_current[i_right, j, 0], spins_current[i_right, j, 1], spins_current[i_right, j, 2]
+                n_left_x, n_left_y, n_left_z = spins_current[i_left, j, 0], spins_current[i_left, j, 1], spins_current[i_left, j, 2]
                 
-                ny_next_0, ny_next_1, ny_next_2 = spins_current[i, j_next, 0], spins_current[i, j_next, 1], spins_current[i, j_next, 2]
-                ny_prev_0, ny_prev_1, ny_prev_2 = spins_current[i, j_prev, 0], spins_current[i, j_prev, 1], spins_current[i, j_prev, 2]
+                n_up_x, n_up_y, n_up_z = spins_current[i, j_up, 0], spins_current[i, j_up, 1], spins_current[i, j_up, 2]
+                n_down_x, n_down_y, n_down_z = spins_current[i, j_down, 0], spins_current[i, j_down, 1], spins_current[i, j_down, 2]
                 
                 # --- Energy Accumulation ---
-                E_ex_x += 0.5 * ((nx_next_0 - n0)**2 + (nx_next_1 - n1)**2 + (nx_next_2 - n2)**2)
-                E_ex_y += 0.5 * ((ny_next_0 - n0)**2 + (ny_next_1 - n1)**2 + (ny_next_2 - n2)**2)
+                E_ex_x += 0.5 * ((n_right_x - n_x)**2 + (n_right_y - n_y)**2 + (n_right_z - n_z)**2)
+                E_ex_y += 0.5 * ((n_up_x - n_x)**2 + (n_up_y - n_y)**2 + (n_up_z - n_z)**2)
                 
-                E_dmi_x += (n2 * (nx_next_0 - n0) - n0 * (nx_next_2 - n2))
-                E_dmi_y += (n2 * (ny_next_1 - n1) - n1 * (ny_next_2 - n2))
+                E_dmi_x += (n_z * (n_right_x - n_x) - n_x * (n_right_z - n_z))
+                E_dmi_y += (n_z * (n_up_y - n_y) - n_y * (n_up_z - n_z))
                 
-                E_z -= H_scaled * n2
-                E_a += A_scaled * n2**2
+                E_z += H_scaled * n_z
+                E_a += A_scaled * n_z**2
                 
                 # --- Effective Field Calculation ---
-                H0 = (nx_next_0 + nx_prev_0 - 2*n0)/(ax**2) + (ny_next_0 + ny_prev_0 - 2*n0)/(ay**2)
-                H1 = (nx_next_1 + nx_prev_1 - 2*n1)/(ax**2) + (ny_next_1 + ny_prev_1 - 2*n1)/(ay**2)
-                H2 = (nx_next_2 + nx_prev_2 - 2*n2)/(ax**2) + (ny_next_2 + ny_prev_2 - 2*n2)/(ay**2)
+                H_x = (n_right_x + n_left_x - 2*n_x)/(ax**2) + (n_up_x + n_down_x - 2*n_x)/(ay**2)
+                H_y = (n_right_y + n_left_y - 2*n_y)/(ax**2) + (n_up_y + n_down_y - 2*n_y)/(ay**2)
+                H_z = (n_right_z + n_left_z - 2*n_z)/(ax**2) + (n_up_z + n_down_z - 2*n_z)/(ay**2)
                 
-                H0 += - (nx_next_2 - nx_prev_2) / (2 * ax)
-                H1 += - (ny_next_2 - ny_prev_2) / (2 * ay)
-                H2 += (nx_next_0 - nx_prev_0) / (2 * ax) + (ny_next_1 - ny_prev_1) / (2 * ay)
+                # DMI Effective Field (Factor of 2 removed from denominator via analytical Integration By Parts)
+                H_x += (n_right_z - n_left_z) / ax
+                H_y += (n_up_z - n_down_z) / ay
+                H_z += - (n_right_x - n_left_x) / ax - (n_up_y - n_down_y) / ay
                 
-                H2 += H_scaled
-                H2 -= 2 * A_scaled * n2
+                H_z -= H_scaled
+                H_z -= 2 * A_scaled * n_z
                 
-                # --- LLG Update ---
-                dot_val = n0*H0 + n1*H1 + n2*H2
-                ndot0 = H0 - dot_val * n0
-                ndot1 = H1 - dot_val * n1
-                ndot2 = H2 - dot_val * n2
+                # --- LLG Derivative (Predictor) ---
+                dot_val = n_x*H_x + n_y*H_y + n_z*H_z
+                ndot_x = H_x - dot_val * n_x
+                ndot_y = H_y - dot_val * n_y
+                ndot_z = H_z - dot_val * n_z
                 
-                n_new0 = n0 + dt * ndot0
-                n_new1 = n1 + dt * ndot1
-                n_new2 = n2 + dt * ndot2
+                # Save derivative for corrector
+                ndot_current[i, j, 0] = ndot_x
+                ndot_current[i, j, 1] = ndot_y
+                ndot_current[i, j, 2] = ndot_z
                 
-                # Strict Re-normalization
-                norm = np.sqrt(n_new0**2 + n_new1**2 + n_new2**2)
-                spins_next[i, j, 0] = n_new0 / norm
-                spins_next[i, j, 1] = n_new1 / norm
-                spins_next[i, j, 2] = n_new2 / norm
+                # Predictor Step
+                n_pred_x = n_x + dt * ndot_x
+                n_pred_y = n_y + dt * ndot_y
+                n_pred_z = n_z + dt * ndot_z
+                
+                # Normalize predictor
+                norm_pred = np.sqrt(n_pred_x**2 + n_pred_y**2 + n_pred_z**2)
+                spins_pred[i, j, 0] = n_pred_x / norm_pred
+                spins_pred[i, j, 1] = n_pred_y / norm_pred
+                spins_pred[i, j, 2] = n_pred_z / norm_pred
 
         # Average energies per spin
         L2 = L*L
@@ -207,21 +242,84 @@ def relax_phase_numba(spins, L, H_scaled, A_scaled, max_steps=50000, tol=1e-7, a
         E_z /= L2
         E_a /= L2
         
-        # Total Scaled Energy Density (DMI is lowered, hence minus sign)
-        f_tot = (E_ex_x / ax**2) + (E_ex_y / ay**2) - (E_dmi_x / ax) - (E_dmi_y / ay) + E_z + E_a
+        # Total Scaled Energy Density
+        f_tot = (E_ex_x / ax**2) + (E_ex_y / ay**2) + (E_dmi_x / ax) + (E_dmi_y / ay) + E_z + E_a
         
-        # Dynamic Scaling Strategy: (ax minimizes E_ex/a^2 - E_dmi/a)
+        # --- PASS 2: Corrector Step ---
+        for i in range(L):
+            for j in range(L):
+                # Periodic neighbors
+                i_right = (i + 1) % L
+                i_left = (i - 1 + L) % L
+                j_up = (j + 1) % L
+                j_down = (j - 1 + L) % L
+                
+                # Predictor spin states
+                n_x = spins_pred[i, j, 0]
+                n_y = spins_pred[i, j, 1]
+                n_z = spins_pred[i, j, 2]
+                
+                n_right_x, n_right_y, n_right_z = spins_pred[i_right, j, 0], spins_pred[i_right, j, 1], spins_pred[i_right, j, 2]
+                n_left_x, n_left_y, n_left_z = spins_pred[i_left, j, 0], spins_pred[i_left, j, 1], spins_pred[i_left, j, 2]
+                
+                n_up_x, n_up_y, n_up_z = spins_pred[i, j_up, 0], spins_pred[i, j_up, 1], spins_pred[i, j_up, 2]
+                n_down_x, n_down_y, n_down_z = spins_pred[i, j_down, 0], spins_pred[i, j_down, 1], spins_pred[i, j_down, 2]
+                
+                # --- Effective Field Calculation (Corrector) ---
+                H_x = (n_right_x + n_left_x - 2*n_x)/(ax**2) + (n_up_x + n_down_x - 2*n_x)/(ay**2)
+                H_y = (n_right_y + n_left_y - 2*n_y)/(ax**2) + (n_up_y + n_down_y - 2*n_y)/(ay**2)
+                H_z = (n_right_z + n_left_z - 2*n_z)/(ax**2) + (n_up_z + n_down_z - 2*n_z)/(ay**2)
+                
+                H_x += (n_right_z - n_left_z) / ax
+                H_y += (n_up_z - n_down_z) / ay
+                H_z += - (n_right_x - n_left_x) / ax - (n_up_y - n_down_y) / ay
+                
+                H_z -= H_scaled
+                H_z -= 2 * A_scaled * n_z
+                
+                # --- LLG Derivative (Corrector) ---
+                dot_val = n_x*H_x + n_y*H_y + n_z*H_z
+                ndot_x_pred = H_x - dot_val * n_x
+                ndot_y_pred = H_y - dot_val * n_y
+                ndot_z_pred = H_z - dot_val * n_z
+                
+                # --- Corrector Step ---
+                n_x_orig = spins_current[i, j, 0]
+                n_y_orig = spins_current[i, j, 1]
+                n_z_orig = spins_current[i, j, 2]
+                
+                ndot_x_orig = ndot_current[i, j, 0]
+                ndot_y_orig = ndot_current[i, j, 1]
+                ndot_z_orig = ndot_current[i, j, 2]
+                
+                ndot_x_avg = 0.5 * (ndot_x_orig + ndot_x_pred)
+                ndot_y_avg = 0.5 * (ndot_y_orig + ndot_y_pred)
+                ndot_z_avg = 0.5 * (ndot_z_orig + ndot_z_pred)
+                
+                n_new_x = n_x_orig + dt * ndot_x_avg
+                n_new_y = n_y_orig + dt * ndot_y_avg
+                n_new_z = n_z_orig + dt * ndot_z_avg
+                
+                # Strict Re-normalization
+                norm = np.sqrt(n_new_x**2 + n_new_y**2 + n_new_z**2)
+                spins_next[i, j, 0] = n_new_x / norm
+                spins_next[i, j, 1] = n_new_y / norm
+                spins_next[i, j, 2] = n_new_z / norm
+
+        # Dynamic Scaling Strategy
         if abs(E_dmi_x) > 1e-12 and abs(E_ex_x) > 1e-12:
-            ax = 2.0 * E_ex_x / E_dmi_x
+            # We strictly enforce the positive root of the energy minimization polynomial
+            # ax = 2.0 * Ex / |DMI| guarantees the mathematically required increase in period when DMI is small/Exchange is large.
+            ax = 2.0 * E_ex_x / abs(E_dmi_x)
         if abs(E_dmi_y) > 1e-12 and abs(E_ex_y) > 1e-12:
-            ay = 2.0 * E_ex_y / E_dmi_y
+            ay = 2.0 * E_ex_y / abs(E_dmi_y)
             
         # Optional clamping
-        if ax <= 0: ax = 1.0
-        if ay <= 0: ay = 1.0
+        if ax <= 0: ax = ax_in
+        if ay <= 0: ay = ay_in
 
         # Check convergence
-        if step > 1000 and abs(f_tot - prev_f) < tol:
+        if (global_step_start + step) > 1000 and abs(f_tot - prev_f) < tol:
             # We must break here and transfer the output
             spins_current[:] = spins_next[:]
             break
@@ -239,29 +337,58 @@ def relax_phase_numba(spins, L, H_scaled, A_scaled, max_steps=50000, tol=1e-7, a
 # Part D & E: Execution Wrapper
 # ---------------------------------------------------------
 
-def relax_phase(spins, L, H_scaled, A_scaled, phase_name, max_steps=50000, tol=1e-7, live_plot=False):
+def relax_phase(spins, L, H_scaled, A_scaled, phase_name, ax_in=1.0, ay_in=1.0, max_steps=50000, tol=1e-7, live_plot=False, live_mode="quiver", max_dt=0.05, cfl_factor=0.25, visualize_scaling=False):
     """
     Relax the given spin configuration using LLG and dynamic scaling.
     This is now a wrapper around the ultra-fast Numba integrator.
     """
-    ax, ay = 1.0, 1.0
+    ax, ay = ax_in, ay_in
     prev_f = 0.0
     steps_done = 0
     
     if live_plot:
         import matplotlib.pyplot as plt
         plt.ion()
-        fig, ax_plot = plt.subplots(figsize=(5,5))
-        im = ax_plot.imshow(spins[:, :, 2], vmin=-1, vmax=1, cmap='bwr', origin='lower')
+        fig, ax_plot = plt.subplots(figsize=(8,8))
+        
+        if live_mode == "quiver":
+            tiles_x, tiles_y = 1, 1 # Change here number of tiles that are live plotted
+            tiled_spins = np.tile(spins, (tiles_x, tiles_y, 1))
+            L_x, L_y = tiled_spins.shape[0], tiled_spins.shape[1]
+            X, Y = np.meshgrid(np.arange(L_x), np.arange(L_y))
+            
+            U = tiled_spins[:, :, 0].T
+            V = tiled_spins[:, :, 1].T
+            Sz = tiled_spins[:, :, 2].T
+            
+            q = ax_plot.quiver(X, Y, U, V, Sz, cmap="coolwarm", pivot='mid', scale=max(L_x, L_y)*0.8, width=0.005)
+            q.set_clim(-1, 1)
+            
+            rects = []
+            for i in range(tiles_x):
+                for j in range(tiles_y):
+                    rect = plt.Rectangle((-0.5 + i*L, -0.5 + j*L), L, L, 
+                                       fill=False, edgecolor='black', linestyle='--', linewidth=1.5, alpha=0.5)
+                    ax_plot.add_patch(rect)
+                    rects.append((i, j, rect))
+                    
+            ax_plot.set_xlim(-1, L_x)
+            ax_plot.set_ylim(-1, L_y)
+            ax_plot.set_aspect('equal')
+        else:
+            im = ax_plot.imshow(spins[:, :, 2], vmin=-1, vmax=1, cmap='bwr', origin='lower', extent=[0, L, 0, L])
+            ax_plot.set_aspect('equal')
+
         ax_plot.set_title(f"Relaxing {phase_name}...")
+        fig.tight_layout()
         plt.show()
     
-    chunk = 250 if live_plot else max_steps
+    chunk = 10 if live_plot else max_steps
     
     while steps_done < max_steps:
         # Numba executes cleanly in small chunks so we can visualize intermediate states
         spins_final, f_tot, ax, ay, steps_taken = relax_phase_numba(
-            spins, L, H_scaled, A_scaled, chunk, tol, ax, ay, prev_f
+            spins, L, H_scaled, A_scaled, chunk, tol, ax, ay, prev_f, max_dt, cfl_factor, global_step_start=steps_done
         )
         
         # The true number of steps executed is steps_taken + 1 because the loop is 0-indexed and returns `step`
@@ -270,9 +397,34 @@ def relax_phase(spins, L, H_scaled, A_scaled, phase_name, max_steps=50000, tol=1
         spins = spins_final
         
         if live_plot:
-            im.set_data(spins[:, :, 2])
-            ax_plot.set_title(f"[{phase_name}] Step {steps_done} | f = {f_tot:.4f}")
-            plt.pause(0.01)
+            if live_mode == "quiver":
+                tiled_spins = np.tile(spins, (tiles_x, tiles_y, 1))
+                U = tiled_spins[:, :, 0].T
+                V = tiled_spins[:, :, 1].T
+                Sz = tiled_spins[:, :, 2].T
+                q.set_UVC(U, V, Sz)
+                
+                # Update positions for dynamic scaling
+                if visualize_scaling:
+                    pts = np.column_stack((X.flatten() * ax, Y.flatten() * ay))
+                    q.set_offsets(pts)
+                    
+                    for (i, j, rect) in rects:
+                        rect.set_xy(((-0.5 + i*L)*ax, (-0.5 + j*L)*ay))
+                        rect.set_width(L * ax)
+                        rect.set_height(L * ay)
+                        
+                    ax_plot.set_xlim(-ax, L_x * ax)
+                    ax_plot.set_ylim(-ay, L_y * ay)
+            else:
+                im.set_data(spins[:, :, 2])
+                if visualize_scaling:
+                    im.set_extent([0, L*ax, 0, L*ay])
+                    ax_plot.set_xlim(0, L*ax)
+                    ax_plot.set_ylim(0, L*ay)
+                
+            ax_plot.set_title(f"[{phase_name}] Step {steps_done} | f={f_tot:.4f} | ax={ax:.2f}, ay={ay:.2f}")
+            plt.pause(0.02)
             
         if steps_taken + 1 < chunk:
             break
@@ -288,9 +440,9 @@ def relax_phase(spins, L, H_scaled, A_scaled, phase_name, max_steps=50000, tol=1
 def get_FM_energy(H_scaled, A_scaled):
     """Calculate the exact analytical energy of the FM state."""
     # Aligned FM (nz = 1 or -1)
-    # The energy is E = A_s n_z^2 - H n_z
-    e_aligned = A_scaled - H_scaled # For nz = +1
-    e_anti_aligned = A_scaled + H_scaled # For nz = -1
+    # The energy is E = A_s n_z^2 + H n_z
+    e_aligned = A_scaled + H_scaled # For nz = +1
+    e_anti_aligned = A_scaled - H_scaled # For nz = -1
     
     # Tilted FM (occurs when |H| < 2|A_s| and A_s > 0 usually)
     # nz = H / (2 A_s)
@@ -302,7 +454,7 @@ def get_FM_energy(H_scaled, A_scaled):
             
     return min(e_aligned, e_anti_aligned, e_tilted)
 
-def compare_phases(H_scaled=0.08, A_scaled=0.5, L=64, npy_file=None, plot_ansatz=False, live_plot=False):
+def compare_phases(H_scaled=0.08, A_scaled=0.5, L=64, npy_file=None, plot_ansatz=False, live_plot=False, live_mode="quiver", max_dt=0.05, cfl_factor=0.25, visualize_scaling=False, plot_groundstate=False):
     """
     Main Execution: Tests SkX, SP, and FM to find the true numerical ground state.
     """
@@ -311,41 +463,41 @@ def compare_phases(H_scaled=0.08, A_scaled=0.5, L=64, npy_file=None, plot_ansatz
     
     # 1. Skyrmion Lattice
     print("Initializing SkX...")
-    spins_skx = init_SkX(L)
+    spins_skx, ax_skx, ay_skx = init_SkX(L)
     np.save("ansatz_SkX.npy", spins_skx)
     if plot_ansatz:
         try:
             from periodic_plotting import plot_periodic_structure
             print("Displaying SkX Ansatz...")
-            plot_periodic_structure("ansatz_SkX.npy", tiles_x=2, tiles_y=2, display_mode="quiver")
+            plot_periodic_structure("ansatz_SkX.npy", tiles_x=2, tiles_y=2, display_mode="quiver", ax=ax_skx, ay=ay_skx)
         except: pass
-    spins_skx, f_skx = relax_phase(spins_skx, L, H_scaled, A_scaled, "SkX", live_plot=live_plot)
+    spins_skx, f_skx = relax_phase(spins_skx, L, H_scaled, A_scaled, "SkX", ax_in=ax_skx, ay_in=ay_skx, live_plot=live_plot, live_mode=live_mode, max_dt=max_dt, cfl_factor=cfl_factor, visualize_scaling=visualize_scaling)
     results["SkX"] = f_skx
     
     # 2. Square Cell 
     print("Initializing SC...")
-    spins_sc = init_SC(L)
+    spins_sc, ax_sc, ay_sc = init_SC(L)
     np.save("ansatz_SC.npy", spins_sc)
     if plot_ansatz:
         try:
             from periodic_plotting import plot_periodic_structure
             print("Displaying SC Ansatz...")
-            plot_periodic_structure("ansatz_SC.npy", tiles_x=2, tiles_y=2, display_mode="quiver")
+            plot_periodic_structure("ansatz_SC.npy", tiles_x=2, tiles_y=2, display_mode="quiver", ax=ax_sc, ay=ay_sc)
         except: pass
-    spins_sc, f_sc = relax_phase(spins_sc, L, H_scaled, A_scaled, "SC", live_plot=live_plot)
+    spins_sc, f_sc = relax_phase(spins_sc, L, H_scaled, A_scaled, "SC", ax_in=ax_sc, ay_in=ay_sc, live_plot=live_plot, live_mode=live_mode, max_dt=max_dt, cfl_factor=cfl_factor, visualize_scaling=visualize_scaling)
     results["SC"] = f_sc
     
     # 3. Spiral Phase
     print("Initializing SP...")
-    spins_sp = init_SP(L)
+    spins_sp, ax_sp, ay_sp = init_SP(L)
     np.save("ansatz_SP.npy", spins_sp)
     if plot_ansatz:
         try:
             from periodic_plotting import plot_periodic_structure
             print("Displaying SP Ansatz...")
-            plot_periodic_structure("ansatz_SP.npy", tiles_x=2, tiles_y=2, display_mode="quiver")
+            plot_periodic_structure("ansatz_SP.npy", tiles_x=2, tiles_y=2, display_mode="quiver", ax=ax_sp, ay=ay_sp)
         except: pass
-    spins_sp, f_sp = relax_phase(spins_sp, L, H_scaled, A_scaled, "SP", live_plot=live_plot)
+    spins_sp, f_sp = relax_phase(spins_sp, L, H_scaled, A_scaled, "SP", ax_in=ax_sp, ay_in=ay_sp, live_plot=live_plot, live_mode=live_mode, max_dt=max_dt, cfl_factor=cfl_factor, visualize_scaling=visualize_scaling)
     results["SP"] = f_sp
     
     # 4. Ferromagnetic
@@ -357,7 +509,13 @@ def compare_phases(H_scaled=0.08, A_scaled=0.5, L=64, npy_file=None, plot_ansatz
     if npy_file and os.path.exists(npy_file):
         print(f"Initializing from custom NPY {npy_file}...")
         spins_cust = load_npy_ansatz(npy_file, L)
-        spins_cust, f_cust = relax_phase(spins_cust, L, H_scaled, A_scaled, "Custom (NPY)")
+        if plot_ansatz:
+            try:
+                from periodic_plotting import plot_periodic_structure
+                print("Displaying Custom (NPY) Ansatz...")
+                plot_periodic_structure(npy_file, tiles_x=2, tiles_y=2, display_mode="quiver")
+            except: pass
+        spins_cust, f_cust = relax_phase(spins_cust, L, H_scaled, A_scaled, "Custom (NPY)", live_plot=live_plot, live_mode=live_mode, max_dt=max_dt, cfl_factor=cfl_factor)
         results["Custom"] = f_cust
     # Determine Winner
     f_fm_val = results["FM"]
@@ -391,13 +549,15 @@ def compare_phases(H_scaled=0.08, A_scaled=0.5, L=64, npy_file=None, plot_ansatz
     if best_spins is not None:
         np.save("llg_groundstate.npy", best_spins)
         print("Saved analytical ground state to 'llg_groundstate.npy'")
-        # Auto-plot
-        try:
-            from periodic_plotting import plot_periodic_structure
-            print("Launching periodic plot...")
-            plot_periodic_structure("llg_groundstate.npy", tiles_x=2, tiles_y=2, display_mode="quiver")
-        except Exception as e:
-            print(f"Could not load periodic_plotting to display: {e}")
+        
+        if plot_groundstate:
+            # Auto-plot
+            try:
+                from periodic_plotting import plot_periodic_structure
+                print("Launching periodic plot...")
+                plot_periodic_structure("llg_groundstate.npy", tiles_x=2, tiles_y=2, display_mode="quiver")
+            except Exception as e:
+                print(f"Could not load periodic_plotting to display: {e}")
     
     return winner, results
 
@@ -409,7 +569,12 @@ if __name__ == "__main__":
     parser.add_argument("--npy", type=str, default=None, help="Optional MC .npy file to use as an ansatz")
     parser.add_argument("--plot-ansatz", action="store_true", help="Plot each ansatz configuration before relaxing")
     parser.add_argument("--live-plot", action="store_true", help="Plot the real-time evolution of the solver")
+    parser.add_argument("--live-mode", type=str, choices=["quiver", "heatmap"], default="quiver", help="Display mode for live plotting")
+    parser.add_argument("--vis-scale", action="store_true", help="Turn on dynamic scaling visualization during live plotting")
+    parser.add_argument("--plot-groundstate", action="store_true", help="Plot the final ground state configuration at the end")
+    parser.add_argument("--max-dt", type=float, default=0.05, help="Maximum integration timestep")
+    parser.add_argument("--cfl", type=float, default=0.25, help="CFL stability factor for dynamic timestep")
     
     args = parser.parse_args()
     
-    compare_phases(H_scaled=args.H, A_scaled=args.A, L=args.L, npy_file=args.npy, plot_ansatz=args.plot_ansatz, live_plot=args.live_plot)
+    compare_phases(H_scaled=args.H, A_scaled=args.A, L=args.L, npy_file=args.npy, plot_ansatz=args.plot_ansatz, live_plot=args.live_plot, live_mode=args.live_mode, max_dt=args.max_dt, cfl_factor=args.cfl, visualize_scaling=args.vis_scale, plot_groundstate=args.plot_groundstate)

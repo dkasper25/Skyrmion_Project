@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import argparse
 import os
 
-def plot_periodic_structure(spins_file, tiles_x=2, tiles_y=2, display_mode="quiver", cmap="coolwarm", scale_factor=0.8):
+def plot_periodic_structure(spins_file, tiles_x=2, tiles_y=2, display_mode="quiver", cmap="coolwarm", scale_factor=0.8, ax=1.0, ay=1.0):
     """
     Load a .npy spin configuration and recursively tile it to 
     visualize the periodic boundary conditions.
@@ -25,7 +25,7 @@ def plot_periodic_structure(spins_file, tiles_x=2, tiles_y=2, display_mode="quiv
     print(f"Tiled periodic surface is now {L_x} x {L_y}")
 
     # Create coordinate grid
-    X, Y = np.meshgrid(np.arange(L_x), np.arange(L_y))
+    X, Y = np.meshgrid(np.arange(L_x) * ax, np.arange(L_y) * ay)
     
     # Extract components (transpose to match meshgrid)
     U = tiled_spins[:, :, 0].T
@@ -35,25 +35,27 @@ def plot_periodic_structure(spins_file, tiles_x=2, tiles_y=2, display_mode="quiv
     # Render Plot
     fig = plt.figure(figsize=(8, 8))
     
+    scale_val = max(L_x, L_y) * scale_factor
+    
     if display_mode == "heatmap":
-        im = plt.imshow(Sz, cmap=cmap, vmin=-1, vmax=1, origin='lower', extent=[-0.5, L_x-0.5, -0.5, L_y-0.5])
-        q = plt.quiver(X, Y, U, V, pivot='mid', scale=max(L_x, L_y)*scale_factor, width=0.005)
+        im = plt.imshow(Sz, cmap=cmap, vmin=-1, vmax=1, origin='lower', extent=[-0.5 * ax, (L_x - 0.5) * ax, -0.5 * ay, (L_y - 0.5) * ay])
+        q = plt.quiver(X, Y, U, V, pivot='mid', scale=scale_val, width=0.005)
         plt.colorbar(im, label='Sz')
     elif display_mode == "quiver":
-        q = plt.quiver(X, Y, U, V, Sz, cmap=cmap, pivot='mid', scale=max(L_x, L_y)*scale_factor, width=0.005)
+        q = plt.quiver(X, Y, U, V, Sz, cmap=cmap, pivot='mid', scale=scale_val, width=0.005)
         q.set_clim(-1, 1)
         plt.colorbar(q, label='Sz')
     
     # Draw dashed bounding boxes around the original unit cells to visualize the tiling borders
     for i in range(tiles_x):
         for j in range(tiles_y):
-            rect = plt.Rectangle((-0.5 + i*L, -0.5 + j*L), L, L, 
+            rect = plt.Rectangle(((-0.5 + i*L) * ax, (-0.5 + j*L) * ay), L * ax, L * ay, 
                                fill=False, edgecolor='black', linestyle='--', linewidth=1.5, alpha=0.5)
             plt.gca().add_patch(rect)
             
     plt.title(f'Periodic Tiling ({tiles_x}x{tiles_y}) of {os.path.basename(spins_file)}')
-    plt.xlim(-1, L_x)
-    plt.ylim(-1, L_y)
+    plt.xlim(-ax, L_x * ax)
+    plt.ylim(-ay, L_y * ay)
     plt.gca().set_aspect('equal')
     plt.tight_layout()
     plt.show()

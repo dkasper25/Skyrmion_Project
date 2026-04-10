@@ -249,7 +249,7 @@ if __name__ == '__main__':
         L=15, h_scaled=1.0, a_scaled=0.8,
         steps=10000, cooling_protocol="continuous",
         enable_plotting=True, save_mp4=False,
-        output_filename=None, cmap_name="viridis"
+        output_filename="final_spins.npy", cmap_name="viridis"
     )
     
     # -------------------------------------------------------------
