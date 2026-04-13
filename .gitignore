@@ -1,6 +1,5 @@
 # Python
 __pycache__/
-output/
 *.py[cod]
 *$py.class
 
@@ -17,3 +16,5 @@ ENV/
 *.png
 *.jpg
 *.mp4
+*.npz
+*.npy
