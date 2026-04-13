@@ -51,7 +51,7 @@ def generate_phase_diagram(n_H=26, n_A=33, L=32):
                 # Suppress output from the inner LLG solver to keep the console clean
                 with HiddenPrints():
                     winner, _ = compare_phases(H_scaled=h, A_scaled=a, L=L, 
-                                               plot_ansatz=False, live_plot=False)
+                                               plot_ansatz=False, live_plot=False, save_outputs=False)
                 
                 # Retrieve the integer ID for the winning phase, or -1 if something went wrong
                 phase_grid[i, j] = phase_map.get(winner, -1)
@@ -64,15 +64,15 @@ def generate_phase_diagram(n_H=26, n_A=33, L=32):
     print(f"\n\nSweep finished in {elapsed:.2f} seconds!")
     
     # Save the exact simulation data so you don't have to recompute just to adjust the plot design!
-    np.save("phase_diagram_data.npy", phase_grid)
-    np.save("H_vals.npy", H_vals)
-    np.save("A_vals.npy", A_vals)
+    total_pts = n_H * n_A
+    out_path = f"output/LLG/Phase Diagram Data/phase_diagram_L{L}_{total_pts}.npz"
+    np.savez(out_path, grid=phase_grid, H_vals=H_vals, A_vals=A_vals)
     
-    print("Data saved to 'phase_diagram_data.npy'. Generating plot...")
-    plot_phase_diagram(phase_grid, H_vals, A_vals)
+    print(f"Data bundled and saved to '{out_path}'. Generating plot...")
+    plot_phase_diagram(phase_grid, H_vals, A_vals, out_name=f"phase_diagram_L{L}_{total_pts}.png")
 
 
-def plot_phase_diagram(phase_grid, H_vals, A_vals):
+def plot_phase_diagram(phase_grid, H_vals, A_vals, out_name="phase_diagram.png"):
     """
     Renders the integer grid as a clean, colored phase diagram.
     """
@@ -115,8 +115,8 @@ def plot_phase_diagram(phase_grid, H_vals, A_vals):
     ax.grid(color='white', alpha=0.5, linestyle='--', linewidth=0.5)
     
     plt.tight_layout()
-    plt.savefig("phase_diagram.png", dpi=300)
-    print("Saved high-res plot to 'phase_diagram.png'")
+    plt.savefig(f"output/LLG/Graphs/{out_name}", dpi=300)
+    print(f"Saved high-res plot to 'output/LLG/Graphs/{out_name}'")
     
     plt.show()
 
@@ -129,15 +129,25 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
-    # Check if data was previously generated so we don't accidentally waste time recomputing
-    if os.path.exists("phase_diagram_data.npy") and not args.recompute:
-        ans = input("Found existing 'phase_diagram_data.npy'. Load it instead of recomputing? (y/n): ")
-        if ans.lower() == 'y':
-            print("Loading existing data...")
-            grid = np.load("phase_diagram_data.npy")
-            H = np.load("H_vals.npy")
-            A = np.load("A_vals.npy")
-            plot_phase_diagram(grid, H, A)
+    import glob
+    existing_files = glob.glob("output/LLG/Phase Diagram Data/*.npz")
+    
+    if len(existing_files) > 0 and not args.recompute:
+        print("\nFound existing phase diagram data files:")
+        print(" [0] : Generate NEW phase diagram")
+        for idx, f in enumerate(existing_files, 1):
+            print(f" [{idx}] : Load {os.path.basename(f)}")
+        
+        choice = input(f"\nWhich one would you like to load? [0-{len(existing_files)}] (default 0): ").strip()
+        if choice and choice.isdigit() and 0 < int(choice) <= len(existing_files):
+            sel_file = existing_files[int(choice)-1]
+            print(f"Loading existing data from {os.path.basename(sel_file)}...")
+            data = np.load(sel_file)
+            grid = data['grid']
+            H = data['H_vals']
+            A = data['A_vals']
+            out_png = os.path.basename(sel_file).replace('.npz', '.png')
+            plot_phase_diagram(grid, H, A, out_name=out_png)
         else:
             generate_phase_diagram(n_H=args.nH, n_A=args.nA, L=args.L)
     else:

@@ -5,6 +5,7 @@ import io
 import imageio.v3 as iio
 import os
 import time
+import argparse
 
 # Constants and configuration parameters have been moved inside the run_simulation function.
 # This prevents global state lock-in and allows execution in loops for phase diagrams.
@@ -133,7 +134,7 @@ def run_simulation(
     T_start=1.0, T_target=0.01, steps=10000, 
     cooling_protocol="continuous", initial_spins=None,
     enable_plotting=False, save_mp4=False, 
-    video_filename=None, output_filename="final_spins.npy", 
+    video_filename=None, output_filename=None, 
     dpi=300, display_mode="quiver", cmap_name="bwr"
 ):
     """
@@ -150,10 +151,12 @@ def run_simulation(
     # Determine paths
     script_dir = os.path.dirname(os.path.abspath(__file__))
     
-    output_path = os.path.join(script_dir, output_filename) if output_filename else None
+    if not output_filename:
+        output_filename = f"output/MC/npy/final_spins_L{L}_A{a_scaled:.2f}_H{h_scaled:.2f}.npy"
+    output_path = os.path.join(script_dir, output_filename)
     
     if not video_filename:
-        video_filename = f"skyrmions_L{L}_A{a_scaled:.2f}_H{h_scaled:.2f}.mp4"
+        video_filename = f"output/MC/videos/skyrmions_L{L}_A{a_scaled:.2f}_H{h_scaled:.2f}.mp4"
     video_path = os.path.join(script_dir, video_filename)
 
     # Initialize spin lattice
@@ -241,27 +244,36 @@ def run_simulation(
     return spins
 
 if __name__ == '__main__':
-    time1 = time.time()
-
-    # Example 1: Run a simulation quickly without plotting (e.g., for batch jobs)
-    print("--- Example Run ---")
-    final_spins = run_simulation(
-        L=15, h_scaled=1.0, a_scaled=0.8,
-        steps=10000, cooling_protocol="continuous",
-        enable_plotting=True, save_mp4=False,
-        output_filename="final_spins.npy", cmap_name="viridis"
-    )
+    parser = argparse.ArgumentParser(description="Monte Carlo Metropolis Skyrmion Simulation")
+    parser.add_argument("--L", type=int, default=15, help="Lattice size (L x L)")
+    parser.add_argument("--J", type=float, default=1.0, help="Exchange interaction")
+    parser.add_argument("--D", type=float, default=0.5, help="DMI strength")
+    parser.add_argument("--H", type=float, default=1.5, help="Scaled magnetic field")
+    parser.add_argument("--A", type=float, default=-0.5, help="Scaled Anisotropy")
+    parser.add_argument("--T-start", type=float, default=1.0, help="Initial temperature")
+    parser.add_argument("--T-target", type=float, default=0.01, help="Final/target temperature")
+    parser.add_argument("--steps", type=int, default=10000, help="Number of Monte Carlo sweeps")
+    parser.add_argument("--protocol", type=str, choices=["continuous", "stepwise", "constant"], default="continuous", help="Cooling protocol")
+    parser.add_argument("--plot", action="store_true", help="Enable live plotting (or saving frames if --save-mp4 is used)")
+    parser.add_argument("--save-mp4", action="store_true", help="Save the simulation as an MP4 video")
+    parser.add_argument("--video-file", type=str, default=None, help="Output MP4 filename (if save_mp4 is enabled)")
+    parser.add_argument("--out-npy", type=str, default=None, help="Output .npy spin configuration filename")
+    parser.add_argument("--mode", type=str, choices=["quiver", "heatmap"], default="quiver", help="Display mode for plotting")
+    parser.add_argument("--cmap", type=str, default="bwr", help="Colormap for plotting")
     
-    # -------------------------------------------------------------
-    # Example 2: How you would write a phase diagram script:
-    # -------------------------------------------------------------
-    # for h in [0.5, 1.0, 1.5]:
-    #     for a in [-0.5, 0.0, 0.5]:
-    #         run_simulation(
-    #             L=15, h_scaled=h, a_scaled=a, 
-    #             steps=5000, enable_plotting=False,
-    #             output_filename=f"spins_h{h}_a{a}.npy"
-    #         )
+    args = parser.parse_args()
+
+    time1 = time.time()
+    print("--- Starting MC Simulation ---")
+    
+    final_spins = run_simulation(
+        L=args.L, J=args.J, D=args.D, h_scaled=args.H, a_scaled=args.A,
+        T_start=args.T_start, T_target=args.T_target, steps=args.steps,
+        cooling_protocol=args.protocol, 
+        enable_plotting=args.plot, save_mp4=args.save_mp4,
+        video_filename=args.video_file, output_filename=args.out_npy,
+        display_mode=args.mode, cmap_name=args.cmap
+    )
     
     time2 = time.time()
     print(f"Total time taken: {time2 - time1:.2f}s")

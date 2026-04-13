@@ -63,7 +63,7 @@ def plot_periodic_structure(spins_file, tiles_x=2, tiles_y=2, display_mode="quiv
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Plot periodic skyrmion lattices.")
     # The default file matches the output filename in MC_metropolis.py
-    parser.add_argument("file", type=str, nargs='?', default="final_spins.npy", help="Path to .npy spin file")
+    parser.add_argument("file", type=str, nargs='?', default="output/MC/npy/final_spins.npy", help="Path to .npy spin file")
     parser.add_argument("--tiles", type=int, default=2, help="Number of times to tile the lattice in both x and y directions")
     parser.add_argument("--mode", type=str, choices=["quiver", "heatmap"], default="quiver", help="Display mode for plotting")
     

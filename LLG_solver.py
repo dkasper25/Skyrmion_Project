@@ -352,7 +352,7 @@ def relax_phase(spins, L, H_scaled, A_scaled, phase_name, ax_in=1.0, ay_in=1.0, 
         fig, ax_plot = plt.subplots(figsize=(8,8))
         
         if live_mode == "quiver":
-            tiles_x, tiles_y = 3, 3 # Change here number of tiles that are live plotted
+            tiles_x, tiles_y = 1, 1 # Change here number of tiles that are live plotted
             tiled_spins = np.tile(spins, (tiles_x, tiles_y, 1))
             L_x, L_y = tiled_spins.shape[0], tiled_spins.shape[1]
             X, Y = np.meshgrid(np.arange(L_x), np.arange(L_y))
@@ -383,7 +383,7 @@ def relax_phase(spins, L, H_scaled, A_scaled, phase_name, ax_in=1.0, ay_in=1.0, 
         fig.tight_layout()
         plt.show()
     
-    chunk = 100 if live_plot else max_steps
+    chunk = 10 if live_plot else max_steps
     
     while steps_done < max_steps:
         # Numba executes cleanly in small chunks so we can visualize intermediate states
@@ -435,7 +435,7 @@ def relax_phase(spins, L, H_scaled, A_scaled, phase_name, ax_in=1.0, ay_in=1.0, 
         plt.close(fig)
     
     print(f"[{phase_name}] Relaxed in {steps_done} steps. Energy Density: {f_tot:.5f} (ax={ax:.3f}, ay={ay:.3f})")
-    return spins, f_tot
+    return spins, f_tot, ax, ay
 
 def get_FM_energy(H_scaled, A_scaled):
     """Calculate the exact analytical energy of the FM state."""
@@ -454,7 +454,7 @@ def get_FM_energy(H_scaled, A_scaled):
             
     return min(e_aligned, e_anti_aligned, e_tilted)
 
-def compare_phases(H_scaled=0.08, A_scaled=0.5, L=64, npy_file=None, plot_ansatz=False, live_plot=False, live_mode="quiver", max_dt=0.05, cfl_factor=0.25, visualize_scaling=False, plot_groundstate=False):
+def compare_phases(H_scaled=0.08, A_scaled=0.5, L=64, npy_file=None, plot_ansatz=False, live_plot=False, live_mode="quiver", max_dt=0.05, cfl_factor=0.25, visualize_scaling=False, plot_groundstate=False, save_outputs=True):
     """
     Main Execution: Tests SkX, SP, and FM to find the true numerical ground state.
     """
@@ -464,40 +464,43 @@ def compare_phases(H_scaled=0.08, A_scaled=0.5, L=64, npy_file=None, plot_ansatz
     # 1. Skyrmion Lattice
     print("Initializing SkX...")
     spins_skx, ax_skx, ay_skx = init_SkX(L)
-    np.save("ansatz_SkX.npy", spins_skx)
+    if save_outputs or plot_ansatz:
+        np.save("output/LLG/Ansatze/ansatz_SkX.npy", spins_skx)
     if plot_ansatz:
         try:
             from periodic_plotting import plot_periodic_structure
             print("Displaying SkX Ansatz...")
-            plot_periodic_structure("ansatz_SkX.npy", tiles_x=2, tiles_y=2, display_mode="quiver", ax=ax_skx, ay=ay_skx)
+            plot_periodic_structure("output/LLG/Ansatze/ansatz_SkX.npy", tiles_x=2, tiles_y=2, display_mode="quiver", ax=ax_skx, ay=ay_skx)
         except: pass
-    spins_skx, f_skx = relax_phase(spins_skx, L, H_scaled, A_scaled, "SkX", ax_in=ax_skx, ay_in=ay_skx, live_plot=live_plot, live_mode=live_mode, max_dt=max_dt, cfl_factor=cfl_factor, visualize_scaling=visualize_scaling)
+    spins_skx, f_skx, final_ax_skx, final_ay_skx = relax_phase(spins_skx, L, H_scaled, A_scaled, "SkX", ax_in=ax_skx, ay_in=ay_skx, live_plot=live_plot, live_mode=live_mode, max_dt=max_dt, cfl_factor=cfl_factor, visualize_scaling=visualize_scaling)
     results["SkX"] = f_skx
     
     # 2. Square Cell 
     print("Initializing SC...")
     spins_sc, ax_sc, ay_sc = init_SC(L)
-    np.save("ansatz_SC.npy", spins_sc)
+    if save_outputs or plot_ansatz:
+        np.save("output/LLG/Ansatze/ansatz_SC.npy", spins_sc)
     if plot_ansatz:
         try:
             from periodic_plotting import plot_periodic_structure
             print("Displaying SC Ansatz...")
-            plot_periodic_structure("ansatz_SC.npy", tiles_x=2, tiles_y=2, display_mode="quiver", ax=ax_sc, ay=ay_sc)
+            plot_periodic_structure("output/LLG/Ansatze/ansatz_SC.npy", tiles_x=2, tiles_y=2, display_mode="quiver", ax=ax_sc, ay=ay_sc)
         except: pass
-    spins_sc, f_sc = relax_phase(spins_sc, L, H_scaled, A_scaled, "SC", ax_in=ax_sc, ay_in=ay_sc, live_plot=live_plot, live_mode=live_mode, max_dt=max_dt, cfl_factor=cfl_factor, visualize_scaling=visualize_scaling)
+    spins_sc, f_sc, final_ax_sc, final_ay_sc = relax_phase(spins_sc, L, H_scaled, A_scaled, "SC", ax_in=ax_sc, ay_in=ay_sc, live_plot=live_plot, live_mode=live_mode, max_dt=max_dt, cfl_factor=cfl_factor, visualize_scaling=visualize_scaling)
     results["SC"] = f_sc
     
     # 3. Spiral Phase
     print("Initializing SP...")
     spins_sp, ax_sp, ay_sp = init_SP(L)
-    np.save("ansatz_SP.npy", spins_sp)
+    if save_outputs or plot_ansatz:
+        np.save("output/LLG/Ansatze/ansatz_SP.npy", spins_sp)
     if plot_ansatz:
         try:
             from periodic_plotting import plot_periodic_structure
             print("Displaying SP Ansatz...")
-            plot_periodic_structure("ansatz_SP.npy", tiles_x=2, tiles_y=2, display_mode="quiver", ax=ax_sp, ay=ay_sp)
+            plot_periodic_structure("output/LLG/Ansatze/ansatz_SP.npy", tiles_x=2, tiles_y=2, display_mode="quiver", ax=ax_sp, ay=ay_sp)
         except: pass
-    spins_sp, f_sp = relax_phase(spins_sp, L, H_scaled, A_scaled, "SP", ax_in=ax_sp, ay_in=ay_sp, live_plot=live_plot, live_mode=live_mode, max_dt=max_dt, cfl_factor=cfl_factor, visualize_scaling=visualize_scaling)
+    spins_sp, f_sp, final_ax_sp, final_ay_sp = relax_phase(spins_sp, L, H_scaled, A_scaled, "SP", ax_in=ax_sp, ay_in=ay_sp, live_plot=live_plot, live_mode=live_mode, max_dt=max_dt, cfl_factor=cfl_factor, visualize_scaling=visualize_scaling)
     results["SP"] = f_sp
     
     # 4. Ferromagnetic
@@ -515,7 +518,7 @@ def compare_phases(H_scaled=0.08, A_scaled=0.5, L=64, npy_file=None, plot_ansatz
                 print("Displaying Custom (NPY) Ansatz...")
                 plot_periodic_structure(npy_file, tiles_x=2, tiles_y=2, display_mode="quiver")
             except: pass
-        spins_cust, f_cust = relax_phase(spins_cust, L, H_scaled, A_scaled, "Custom (NPY)", live_plot=live_plot, live_mode=live_mode, max_dt=max_dt, cfl_factor=cfl_factor)
+        spins_cust, f_cust, final_ax_cust, final_ay_cust = relax_phase(spins_cust, L, H_scaled, A_scaled, "Custom (NPY)", live_plot=live_plot, live_mode=live_mode, max_dt=max_dt, cfl_factor=cfl_factor)
         results["Custom"] = f_cust
     # Determine Winner
     f_fm_val = results["FM"]
@@ -530,9 +533,24 @@ def compare_phases(H_scaled=0.08, A_scaled=0.5, L=64, npy_file=None, plot_ansatz
     
     # Extract the winning spins array and save it
     best_spins = None
-    if winner == "SkX": best_spins = spins_skx
-    elif winner == "SC": best_spins = spins_sc
-    elif winner == "SP": best_spins = spins_sp
+    best_ax = 1.0
+    best_ay = 1.0
+    if winner == "SkX": 
+        best_spins = spins_skx
+        best_ax = final_ax_skx
+        best_ay = final_ay_skx
+    elif winner == "SC": 
+        best_spins = spins_sc
+        best_ax = final_ax_sc
+        best_ay = final_ay_sc
+    elif winner == "SP": 
+        best_spins = spins_sp
+        best_ax = final_ax_sp
+        best_ay = final_ay_sp
+    elif winner == "Custom":
+        best_spins = spins_cust
+        best_ax = final_ax_cust
+        best_ay = final_ay_cust
     elif winner == "FM":
         # Synthesize a pure mathematical FM uniform state
         best_spins = np.zeros((L, L, 3))
@@ -547,15 +565,17 @@ def compare_phases(H_scaled=0.08, A_scaled=0.5, L=64, npy_file=None, plot_ansatz
             best_spins[:, :, 2] = nz
             
     if best_spins is not None:
-        np.save("llg_groundstate.npy", best_spins)
-        print("Saved analytical ground state to 'llg_groundstate.npy'")
+        out_name = f"output/LLG/Groundstates/LLG_groundstate_L{L}_A{A_scaled:.2f}_H{H_scaled:.2f}.npy"
+        if save_outputs or plot_groundstate:
+            np.save(out_name, best_spins)
+            print(f"Saved analytical ground state to '{out_name}'")
         
         if plot_groundstate:
             # Auto-plot
             try:
                 from periodic_plotting import plot_periodic_structure
                 print("Launching periodic plot...")
-                plot_periodic_structure("llg_groundstate.npy", tiles_x=2, tiles_y=2, display_mode="quiver")
+                plot_periodic_structure(out_name, tiles_x=2, tiles_y=2, display_mode="quiver", ax=best_ax, ay=best_ay)
             except Exception as e:
                 print(f"Could not load periodic_plotting to display: {e}")
     
