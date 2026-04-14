@@ -124,14 +124,23 @@ def init_SC(L):
                 
     return spins, ax, ay
 
-def load_npy_ansatz(filepath, L):
-    """Fallback to load MC output if requested."""
+def load_ansatz(filepath, L):
+    """Load MC or LLG output (npy or npz) as an ansatz."""
     if not os.path.exists(filepath):
         raise FileNotFoundError(f"Cannot find {filepath}")
-    spins = np.load(filepath)
+        
+    ax, ay = 1.0, 1.0
+    if filepath.endswith('.npz'):
+        data = np.load(filepath)
+        spins = data['spins']
+        if 'ax' in data: ax = float(data['ax'])
+        if 'ay' in data: ay = float(data['ay'])
+    else:
+        spins = np.load(filepath)
+        
     if spins.shape != (L, L, 3):
         raise ValueError(f"Shape mismatch: {spins.shape} vs {(L, L, 3)}")
-    return spins
+    return spins, ax, ay
 
 # ---------------------------------------------------------
 # Part B & C: Energy, Effective Field, and LLG step
@@ -465,12 +474,12 @@ def compare_phases(H_scaled=0.08, A_scaled=0.5, L=64, npy_file=None, plot_ansatz
     print("Initializing SkX...")
     spins_skx, ax_skx, ay_skx = init_SkX(L)
     if save_outputs or plot_ansatz:
-        np.save("output/LLG/Ansatze/ansatz_SkX.npy", spins_skx)
+        np.savez("output/LLG/Ansatze/ansatz_SkX.npz", spins=spins_skx, ax=ax_skx, ay=ay_skx)
     if plot_ansatz:
         try:
             from periodic_plotting import plot_periodic_structure
             print("Displaying SkX Ansatz...")
-            plot_periodic_structure("output/LLG/Ansatze/ansatz_SkX.npy", tiles_x=2, tiles_y=2, display_mode="quiver", ax=ax_skx, ay=ay_skx)
+            plot_periodic_structure("output/LLG/Ansatze/ansatz_SkX.npz", tiles_x=2, tiles_y=2, display_mode="quiver", ax=ax_skx, ay=ay_skx)
         except: pass
     spins_skx, f_skx, final_ax_skx, final_ay_skx = relax_phase(spins_skx, L, H_scaled, A_scaled, "SkX", ax_in=ax_skx, ay_in=ay_skx, live_plot=live_plot, live_mode=live_mode, max_dt=max_dt, cfl_factor=cfl_factor, visualize_scaling=visualize_scaling)
     results["SkX"] = f_skx
@@ -479,12 +488,12 @@ def compare_phases(H_scaled=0.08, A_scaled=0.5, L=64, npy_file=None, plot_ansatz
     print("Initializing SC...")
     spins_sc, ax_sc, ay_sc = init_SC(L)
     if save_outputs or plot_ansatz:
-        np.save("output/LLG/Ansatze/ansatz_SC.npy", spins_sc)
+        np.savez("output/LLG/Ansatze/ansatz_SC.npz", spins=spins_sc, ax=ax_sc, ay=ay_sc)
     if plot_ansatz:
         try:
             from periodic_plotting import plot_periodic_structure
             print("Displaying SC Ansatz...")
-            plot_periodic_structure("output/LLG/Ansatze/ansatz_SC.npy", tiles_x=2, tiles_y=2, display_mode="quiver", ax=ax_sc, ay=ay_sc)
+            plot_periodic_structure("output/LLG/Ansatze/ansatz_SC.npz", tiles_x=2, tiles_y=2, display_mode="quiver", ax=ax_sc, ay=ay_sc)
         except: pass
     spins_sc, f_sc, final_ax_sc, final_ay_sc = relax_phase(spins_sc, L, H_scaled, A_scaled, "SC", ax_in=ax_sc, ay_in=ay_sc, live_plot=live_plot, live_mode=live_mode, max_dt=max_dt, cfl_factor=cfl_factor, visualize_scaling=visualize_scaling)
     results["SC"] = f_sc
@@ -493,12 +502,12 @@ def compare_phases(H_scaled=0.08, A_scaled=0.5, L=64, npy_file=None, plot_ansatz
     print("Initializing SP...")
     spins_sp, ax_sp, ay_sp = init_SP(L)
     if save_outputs or plot_ansatz:
-        np.save("output/LLG/Ansatze/ansatz_SP.npy", spins_sp)
+        np.savez("output/LLG/Ansatze/ansatz_SP.npz", spins=spins_sp, ax=ax_sp, ay=ay_sp)
     if plot_ansatz:
         try:
             from periodic_plotting import plot_periodic_structure
             print("Displaying SP Ansatz...")
-            plot_periodic_structure("output/LLG/Ansatze/ansatz_SP.npy", tiles_x=2, tiles_y=2, display_mode="quiver", ax=ax_sp, ay=ay_sp)
+            plot_periodic_structure("output/LLG/Ansatze/ansatz_SP.npz", tiles_x=2, tiles_y=2, display_mode="quiver", ax=ax_sp, ay=ay_sp)
         except: pass
     spins_sp, f_sp, final_ax_sp, final_ay_sp = relax_phase(spins_sp, L, H_scaled, A_scaled, "SP", ax_in=ax_sp, ay_in=ay_sp, live_plot=live_plot, live_mode=live_mode, max_dt=max_dt, cfl_factor=cfl_factor, visualize_scaling=visualize_scaling)
     results["SP"] = f_sp
@@ -508,17 +517,17 @@ def compare_phases(H_scaled=0.08, A_scaled=0.5, L=64, npy_file=None, plot_ansatz
     print(f"[FM] Analytical Energy Density: {f_fm:.5f}")
     results["FM"] = f_fm
     
-    # 5. Custom NPY (Optional)
+    # 5. Custom Ansatz (Optional)
     if npy_file and os.path.exists(npy_file):
-        print(f"Initializing from custom NPY {npy_file}...")
-        spins_cust = load_npy_ansatz(npy_file, L)
+        print(f"Initializing from custom file {npy_file}...")
+        spins_cust, ax_cust, ay_cust = load_ansatz(npy_file, L)
         if plot_ansatz:
             try:
                 from periodic_plotting import plot_periodic_structure
-                print("Displaying Custom (NPY) Ansatz...")
-                plot_periodic_structure(npy_file, tiles_x=2, tiles_y=2, display_mode="quiver")
+                print("Displaying Custom Ansatz...")
+                plot_periodic_structure(npy_file, tiles_x=2, tiles_y=2, display_mode="quiver", ax=ax_cust, ay=ay_cust)
             except: pass
-        spins_cust, f_cust, final_ax_cust, final_ay_cust = relax_phase(spins_cust, L, H_scaled, A_scaled, "Custom (NPY)", live_plot=live_plot, live_mode=live_mode, max_dt=max_dt, cfl_factor=cfl_factor)
+        spins_cust, f_cust, final_ax_cust, final_ay_cust = relax_phase(spins_cust, L, H_scaled, A_scaled, "Custom", ax_in=ax_cust, ay_in=ay_cust, live_plot=live_plot, live_mode=live_mode, max_dt=max_dt, cfl_factor=cfl_factor)
         results["Custom"] = f_cust
     # Determine Winner
     f_fm_val = results["FM"]
@@ -565,10 +574,10 @@ def compare_phases(H_scaled=0.08, A_scaled=0.5, L=64, npy_file=None, plot_ansatz
             best_spins[:, :, 2] = nz
             
     if best_spins is not None:
-        out_name = f"output/LLG/Groundstates/LLG_groundstate_L{L}_A{A_scaled:.2f}_H{H_scaled:.2f}.npy"
+        out_name = f"output/LLG/Groundstates/LLG_groundstate_L{L}_A{A_scaled:.2f}_H{H_scaled:.2f}.npz"
         if save_outputs or plot_groundstate:
-            np.save(out_name, best_spins)
-            print(f"Saved analytical ground state to '{out_name}'")
+            np.savez(out_name, spins=best_spins, ax=best_ax, ay=best_ay)
+            print(f"Saved numerical ground state to '{out_name}'")
         
         if plot_groundstate:
             # Auto-plot
@@ -586,7 +595,7 @@ if __name__ == "__main__":
     parser.add_argument("--H", type=float, default=1.0, help="Scaled magnetic field")
     parser.add_argument("--A", type=float, default=0.8, help="Scaled Anisotropy")
     parser.add_argument("--L", type=int, default=64, help="Grid size L")
-    parser.add_argument("--npy", type=str, default=None, help="Optional MC .npy file to use as an ansatz")
+    parser.add_argument("--npy", type=str, default=None, help="Optional MC .npy or .npz file to use as an ansatz")
     parser.add_argument("--plot-ansatz", action="store_true", help="Plot each ansatz configuration before relaxing")
     parser.add_argument("--live-plot", action="store_true", help="Plot the real-time evolution of the solver")
     parser.add_argument("--live-mode", type=str, choices=["quiver", "heatmap"], default="quiver", help="Display mode for live plotting")

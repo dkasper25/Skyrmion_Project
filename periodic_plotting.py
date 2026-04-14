@@ -13,8 +13,17 @@ def plot_periodic_structure(spins_file, tiles_x=2, tiles_y=2, display_mode="quiv
         return
         
     # Load original (L x L x 3) spins
-    spins = np.load(spins_file)
-    print(f"Loaded original spins with shape: {spins.shape}")
+    if spins_file.endswith('.npz'):
+        data = np.load(spins_file)
+        spins = data['spins']
+        if 'ax' in data and ax == 1.0:
+            ax = float(data['ax'])
+        if 'ay' in data and ay == 1.0:
+            ay = float(data['ay'])
+    else:
+        spins = np.load(spins_file)
+        
+    print(f"Loaded original spins with shape: {spins.shape}, ax={ax:.3f}, ay={ay:.3f}")
     L = spins.shape[0]
     
     # Tile it (tiles_x, tiles_y, 1) to extend the 2D grid while keeping spin depth (3) intact
@@ -63,9 +72,11 @@ def plot_periodic_structure(spins_file, tiles_x=2, tiles_y=2, display_mode="quiv
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Plot periodic skyrmion lattices.")
     # The default file matches the output filename in MC_metropolis.py
-    parser.add_argument("file", type=str, nargs='?', default="output/MC/npy/final_spins.npy", help="Path to .npy spin file")
+    parser.add_argument("file", type=str, nargs='?', default="output/MC/npy/final_spins.npy", help="Path to .npy or .npz spin file")
     parser.add_argument("--tiles", type=int, default=2, help="Number of times to tile the lattice in both x and y directions")
     parser.add_argument("--mode", type=str, choices=["quiver", "heatmap"], default="quiver", help="Display mode for plotting")
+    parser.add_argument("--ax", type=float, default=1.0, help="Lattice spacing in x")
+    parser.add_argument("--ay", type=float, default=1.0, help="Lattice spacing in y")
     
     args = parser.parse_args()
     
@@ -73,6 +84,8 @@ if __name__ == "__main__":
         spins_file=args.file,
         tiles_x=args.tiles,
         tiles_y=args.tiles,
-        display_mode=args.mode
+        display_mode=args.mode,
+        ax=args.ax,
+        ay=args.ay
     )
 
