@@ -5,6 +5,7 @@ import sys
 import os
 import time
 import argparse
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from LLG_solver import compare_phases
 
@@ -18,7 +19,29 @@ class HiddenPrints:
         sys.stdout.close()
         sys.stdout = self._original_stdout
 
-def generate_phase_diagram(n_H=26, n_A=33, L=32):
+def _evaluate_phase_point(task):
+    """
+    Worker function for one phase-diagram point.
+    Kept at module scope for Windows multiprocessing compatibility.
+    """
+    i, j, a, h, L = task
+    phase_map = {"SkX": 0, "SC": 1, "SP": 2, "FM": 3}
+
+    try:
+        with HiddenPrints():
+            winner, energies = compare_phases(
+                H_scaled=h,
+                A_scaled=a,
+                L=L,
+                plot_ansatz=False,
+                live_plot=False,
+                save_outputs=False,
+            )
+        return i, j, phase_map.get(winner, -1), energies, None
+    except Exception as exc:
+        return i, j, -1, {"SkX": np.nan, "SC": np.nan, "SP": np.nan, "FM": np.nan}, str(exc)
+
+def generate_phase_diagram(n_H=26, n_A=33, L=32, workers=None):
     """
     Generates a phase diagram by scanning H and A.
     Saves the data and automatically calls the plotter.
@@ -37,38 +60,59 @@ def generate_phase_diagram(n_H=26, n_A=33, L=32):
     energy_SP = np.full((n_A, n_H), np.nan)
     energy_FM = np.full((n_A, n_H), np.nan)
     
-    # Mapping strings to integer IDs for the heatmap
-    phase_map = {"SkX": 0, "SC": 1, "SP": 2, "FM": 3}
+    if workers is None:
+        workers = min(os.cpu_count() or 1, n_H * n_A)
+    if workers < 1:
+        workers = 1
     
     print(f"=== Starting Phase Diagram Generation ===")
     print(f"Total points: {n_H * n_A} (H resolution: {n_H}, A resolution: {n_A})")
     print(f"Using lattice size L={L} for the sweep.")
+    print(f"Using {workers} worker process(es).")
     print("-----------------------------------------")
     
     start_time = time.time()
     
-    for i, a in enumerate(A_vals):
-        for j, h in enumerate(H_vals):
-            # Print without newline to track progress on a single line
-            sys.stdout.write(f"\rComputing Point {i*n_H + j + 1}/{n_H * n_A} | H = {h:.2f}, A = {a:.2f} ... ")
+    tasks = [(i, j, a, h, L) for i, a in enumerate(A_vals) for j, h in enumerate(H_vals)]
+    
+    if workers == 1:
+        for idx, task in enumerate(tasks, start=1):
+            i, j, a, h, _ = task
+            sys.stdout.write(f"\rComputing Point {idx}/{n_H * n_A} | H = {h:.2f}, A = {a:.2f} ... ")
             sys.stdout.flush()
             
-            try:
-                # Suppress output from the inner LLG solver to keep the console clean
-                with HiddenPrints():
-                    winner, energies = compare_phases(H_scaled=h, A_scaled=a, L=L, 
-                                               plot_ansatz=False, live_plot=False, save_outputs=False)
+            ii, jj, phase_id, energies, err = _evaluate_phase_point(task)
+            phase_grid[ii, jj] = phase_id
+            energy_SkX[ii, jj] = energies.get("SkX", np.nan)
+            energy_SC[ii, jj] = energies.get("SC", np.nan)
+            energy_SP[ii, jj] = energies.get("SP", np.nan)
+            energy_FM[ii, jj] = energies.get("FM", np.nan)
+            if err is not None:
+                print(f"\nFailed to converge at H={h}, A={a}: {err}")
+    else:
+        completed = 0
+        with ProcessPoolExecutor(max_workers=workers) as executor:
+            future_to_task = {executor.submit(_evaluate_phase_point, task): task for task in tasks}
+            
+            for future in as_completed(future_to_task):
+                completed += 1
+                _, _, a, h, _ = future_to_task[future]
+                sys.stdout.write(f"\rComputing Point {completed}/{n_H * n_A} | H = {h:.2f}, A = {a:.2f} ... ")
+                sys.stdout.flush()
                 
-                # Retrieve the integer ID for the winning phase, or -1 if something went wrong
-                phase_grid[i, j] = phase_map.get(winner, -1)
-                energy_SkX[i, j] = energies.get("SkX", np.nan)
-                energy_SC[i, j] = energies.get("SC", np.nan)
-                energy_SP[i, j] = energies.get("SP", np.nan)
-                energy_FM[i, j] = energies.get("FM", np.nan)
-                
-            except Exception as e:
-                print(f"\nFailed to converge at H={h}, A={a}: {e}")
-                phase_grid[i, j] = -1 # Mark as invalid
+                try:
+                    ii, jj, phase_id, energies, err = future.result()
+                    phase_grid[ii, jj] = phase_id
+                    energy_SkX[ii, jj] = energies.get("SkX", np.nan)
+                    energy_SC[ii, jj] = energies.get("SC", np.nan)
+                    energy_SP[ii, jj] = energies.get("SP", np.nan)
+                    energy_FM[ii, jj] = energies.get("FM", np.nan)
+                    if err is not None:
+                        print(f"\nFailed to converge at H={h}, A={a}: {err}")
+                except Exception as exc:
+                    i, j, _, _, _ = future_to_task[future]
+                    phase_grid[i, j] = -1
+                    print(f"\nWorker crashed at H={h}, A={a}: {exc}")
                 
     elapsed = time.time() - start_time
     print(f"\n\nSweep finished in {elapsed:.2f} seconds!")

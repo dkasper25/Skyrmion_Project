@@ -3,6 +3,7 @@ import os
 import sys
 import time
 import argparse
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from fintemp_LLG import compare_fintemp_phases
 from phase_diagram import plot_phase_diagram, plot_energy_difference, HiddenPrints
@@ -22,7 +23,26 @@ class FintempArgs:
         self.no_plot = no_plot
         self.live_mode = live_mode
 
-def generate_fintemp_phase_diagram(T_sel=0.1, n_H=26, n_A=33, L=32, steps=1000, block=100):
+def _evaluate_fintemp_point(task):
+    """
+    Worker function for one fintemp phase-diagram point.
+    Kept at module scope for Windows multiprocessing compatibility.
+    """
+    i, j, a, h, T_sel, L, steps, block = task
+    phase_map = {"SkX": 0, "SC": 1, "SP": 2, "FM": 3}
+    
+    sim_args = FintempArgs(L=L, T=T_sel, steps=steps, block=block, no_plot=True)
+    sim_args.H = h
+    sim_args.A = a
+    
+    try:
+        with HiddenPrints():
+            winner, energies = compare_fintemp_phases(sim_args, save_outputs=False)
+        return i, j, phase_map.get(winner, -1), energies, None
+    except Exception as exc:
+        return i, j, -1, {"SkX": np.nan, "SC": np.nan, "SP": np.nan, "FM": np.nan}, str(exc)
+
+def generate_fintemp_phase_diagram(T_sel=0.1, n_H=26, n_A=33, L=32, steps=1000, block=100, workers=None):
     """
     Generates a finite-temperature phase diagram by sweeping H and A and integrating SDEs.
     """
@@ -36,41 +56,63 @@ def generate_fintemp_phase_diagram(T_sel=0.1, n_H=26, n_A=33, L=32, steps=1000, 
     energy_SP = np.full((n_A, n_H), np.nan)
     energy_FM = np.full((n_A, n_H), np.nan)
     
-    phase_map = {"SkX": 0, "SC": 1, "SP": 2, "FM": 3}
+    if workers is None:
+        workers = min(os.cpu_count() or 1, n_H * n_A)
+    if workers < 1:
+        workers = 1
     
     print(f"=== Starting Finite-Temperature Phase Diagram Gen ===")
     print(f"Temperature: T={T_sel}")
     print(f"Resolution: {n_H * n_A} total points (H:{n_H}, A:{n_A})")
     print(f"SDE Config: {steps} steps (Block:{block}) measured at L={L}")
+    print(f"Using {workers} worker process(es).")
     print("-----------------------------------------------------")
     
     start_time = time.time()
     
-    # Configuration Object
-    sim_args = FintempArgs(L=L, T=T_sel, steps=steps, block=block, no_plot=True)
+    # Create task list for all points
+    tasks = [(i, j, a, h, T_sel, L, steps, block) for i, a in enumerate(A_vals) for j, h in enumerate(H_vals)]
     
-    for i, a in enumerate(A_vals):
-        for j, h in enumerate(H_vals):
-            sys.stdout.write(f"\rComputing Point {i*n_H + j + 1}/{n_H * n_A} | H = {h:.2f}, A = {a:.2f} ... ")
+    if workers == 1:
+        # Sequential execution for debugging
+        for idx, task in enumerate(tasks, start=1):
+            i, j, a, h, _, _, _, _ = task
+            sys.stdout.write(f"\rComputing Point {idx}/{n_H * n_A} | H = {h:.2f}, A = {a:.2f} ... ")
             sys.stdout.flush()
             
-            sim_args.H = h
-            sim_args.A = a
+            ii, jj, phase_id, energies, err = _evaluate_fintemp_point(task)
+            phase_grid[ii, jj] = phase_id
+            energy_SkX[ii, jj] = energies.get("SkX", np.nan)
+            energy_SC[ii, jj] = energies.get("SC", np.nan)
+            energy_SP[ii, jj] = energies.get("SP", np.nan)
+            energy_FM[ii, jj] = energies.get("FM", np.nan)
+            if err is not None:
+                print(f"\nFailed to converge at H={h}, A={a}: {err}")
+    else:
+        # Parallel execution with ProcessPoolExecutor
+        completed = 0
+        with ProcessPoolExecutor(max_workers=workers) as executor:
+            future_to_task = {executor.submit(_evaluate_fintemp_point, task): task for task in tasks}
             
-            try:
-                # Shield outputs so massive grid doesn't spam console
-                with HiddenPrints():
-                    winner, energies = compare_fintemp_phases(sim_args, save_outputs=False)
+            for future in as_completed(future_to_task):
+                completed += 1
+                _, _, a, h, _, _, _, _ = future_to_task[future]
+                sys.stdout.write(f"\rComputing Point {completed}/{n_H * n_A} | H = {h:.2f}, A = {a:.2f} ... ")
+                sys.stdout.flush()
                 
-                phase_grid[i, j] = phase_map.get(winner, -1)
-                energy_SkX[i, j] = energies.get("SkX", np.nan)
-                energy_SC[i, j] = energies.get("SC", np.nan)
-                energy_SP[i, j] = energies.get("SP", np.nan)
-                energy_FM[i, j] = energies.get("FM", np.nan)
-                
-            except Exception as e:
-                print(f"\nFailed to converge at H={h}, A={a}: {e}")
-                phase_grid[i, j] = -1
+                try:
+                    ii, jj, phase_id, energies, err = future.result()
+                    phase_grid[ii, jj] = phase_id
+                    energy_SkX[ii, jj] = energies.get("SkX", np.nan)
+                    energy_SC[ii, jj] = energies.get("SC", np.nan)
+                    energy_SP[ii, jj] = energies.get("SP", np.nan)
+                    energy_FM[ii, jj] = energies.get("FM", np.nan)
+                    if err is not None:
+                        print(f"\nFailed to converge at H={h}, A={a}: {err}")
+                except Exception as exc:
+                    i, j, _, _, _, _, _, _ = future_to_task[future]
+                    phase_grid[i, j] = -1
+                    print(f"\nWorker crashed at H={h}, A={a}: {exc}")
                 
     elapsed = time.time() - start_time
     print(f"\n\nSDE Sweep finished in {elapsed:.2f} seconds!")
@@ -114,4 +156,4 @@ if __name__ == "__main__":
     parser.add_argument("--block", type=int, default=100, help="SDE energy averaging block size")
     
     args = parser.parse_args()
-    generate_fintemp_phase_diagram(T_sel=args.T, n_H=args.nH, n_A=args.nA, L=args.L, steps=args.steps, block=args.block)
+    generate_fintemp_phase_diagram(T_sel=args.T, n_H=args.nH, n_A=args.nA, L=args.L, steps=args.steps, block=args.block, workers=16)

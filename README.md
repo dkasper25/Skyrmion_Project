@@ -25,8 +25,13 @@ pip install -r requirements.txt
 
 **1. Calculate Topological Phase Diagram**
 Generates and plots a full numerical phase diagram comparing the energy densities of various theoretical skyrmion phase configurations (Ansatzes).
+```bashpython phase_diagram.py --nH 26 --nA 33 --L 32
+
+```
+
+Focused high-precision window (anisotropy 1.0 to 1.5, magnetic field 0.0 to 0.5) at lattice size 128:
 ```bash
-python phase_diagram.py --nH 26 --nA 33 --L 32
+python phase_diagram.py --nH 51 --nA 51 --L 128 --Hmin 0.0 --Hmax 0.5 --Amin 1.0 --Amax 1.5 --recompute
 ```
 
 **2. Deterministic LLG Relaxation**
