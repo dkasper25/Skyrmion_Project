@@ -31,6 +31,12 @@ def generate_phase_diagram(n_H=26, n_A=33, L=32):
     # Matrix to store the result phase IDs
     phase_grid = np.zeros((n_A, n_H))
     
+    # Matrices to store the energies for each phase
+    energy_SkX = np.full((n_A, n_H), np.nan)
+    energy_SC = np.full((n_A, n_H), np.nan)
+    energy_SP = np.full((n_A, n_H), np.nan)
+    energy_FM = np.full((n_A, n_H), np.nan)
+    
     # Mapping strings to integer IDs for the heatmap
     phase_map = {"SkX": 0, "SC": 1, "SP": 2, "FM": 3}
     
@@ -50,11 +56,15 @@ def generate_phase_diagram(n_H=26, n_A=33, L=32):
             try:
                 # Suppress output from the inner LLG solver to keep the console clean
                 with HiddenPrints():
-                    winner, _ = compare_phases(H_scaled=h, A_scaled=a, L=L, 
+                    winner, energies = compare_phases(H_scaled=h, A_scaled=a, L=L, 
                                                plot_ansatz=False, live_plot=False, save_outputs=False)
                 
                 # Retrieve the integer ID for the winning phase, or -1 if something went wrong
                 phase_grid[i, j] = phase_map.get(winner, -1)
+                energy_SkX[i, j] = energies.get("SkX", np.nan)
+                energy_SC[i, j] = energies.get("SC", np.nan)
+                energy_SP[i, j] = energies.get("SP", np.nan)
+                energy_FM[i, j] = energies.get("FM", np.nan)
                 
             except Exception as e:
                 print(f"\nFailed to converge at H={h}, A={a}: {e}")
@@ -66,13 +76,22 @@ def generate_phase_diagram(n_H=26, n_A=33, L=32):
     # Save the exact simulation data so you don't have to recompute just to adjust the plot design!
     total_pts = n_H * n_A
     out_path = f"output/LLG/Phase Diagram Data/phase_diagram_L{L}_{total_pts}.npz"
-    np.savez(out_path, grid=phase_grid, H_vals=H_vals, A_vals=A_vals)
+    np.savez(out_path, grid=phase_grid, H_vals=H_vals, A_vals=A_vals,
+             energy_SkX=energy_SkX, energy_SC=energy_SC, energy_SP=energy_SP, energy_FM=energy_FM)
     
     print(f"Data bundled and saved to '{out_path}'. Generating plot...")
     plot_phase_diagram(phase_grid, H_vals, A_vals, out_name=f"phase_diagram_L{L}_{total_pts}.png")
+    
+    energies_dict = {
+        'SkX': energy_SkX,
+        'SC': energy_SC,
+        'SP': energy_SP,
+        'FM': energy_FM
+    }
+    plot_energy_difference(energies_dict, H_vals, A_vals, out_name=f"phase_diagram_energy_diff_L{L}_{total_pts}.png")
 
 
-def plot_phase_diagram(phase_grid, H_vals, A_vals, out_name="phase_diagram.png"):
+def plot_phase_diagram(phase_grid, H_vals, A_vals, out_name="phase_diagram.png", title="Topological Magnetic Phase Diagram"):
     """
     Renders the integer grid as a clean, colored phase diagram.
     """
@@ -109,7 +128,7 @@ def plot_phase_diagram(phase_grid, H_vals, A_vals, out_name="phase_diagram.png")
     # Aesthetics
     ax.set_xlabel('Scaled Anisotropy ($A_s$)', fontsize=14, labelpad=10)
     ax.set_ylabel('Scaled Magnetic Field ($H$)', fontsize=14, labelpad=10)
-    ax.set_title('Topological Magnetic Phase Diagram', fontsize=16, pad=20)
+    ax.set_title(title, fontsize=16, pad=20)
     
     # Subtle dashed grid over the heatmap
     ax.grid(color='white', alpha=0.5, linestyle='--', linewidth=0.5)
@@ -119,6 +138,69 @@ def plot_phase_diagram(phase_grid, H_vals, A_vals, out_name="phase_diagram.png")
     print(f"Saved high-res plot to 'output/LLG/Graphs/{out_name}'")
     
     plt.show()
+
+def plot_energy_difference(energies_dict, H_vals, A_vals, out_name="energy_diff.png", title="Energy Gap to First Excited Phase"):
+    """
+    Plots a heatmap of the energy difference between the lowest and 
+    second lowest energy phases at each point.
+    """
+    n_A, n_H = len(A_vals), len(H_vals)
+    energy_diff_grid = np.zeros((n_A, n_H))
+    
+    # Stack the arrays: shape will be (4, n_A, n_H)
+    energy_stack = np.stack([
+        energies_dict['SkX'],
+        energies_dict['SC'],
+        energies_dict['SP'],
+        energies_dict['FM']
+    ])
+    
+    for i in range(n_A):
+        for j in range(n_H):
+            # Extract energies at point (i, j)
+            point_energies = energy_stack[:, i, j]
+            # Remove NaNs
+            valid_energies = point_energies[~np.isnan(point_energies)]
+            
+            if len(valid_energies) >= 2:
+                # Sort to find the two lowest
+                sorted_energies = np.sort(valid_energies)
+                energy_diff_grid[i, j] = sorted_energies[1] - sorted_energies[0]
+            else:
+                # If less than 2 valid phases, difference is np.nan
+                energy_diff_grid[i, j] = np.nan
+                
+    plt.style.use('default')
+    fig, ax = plt.subplots(figsize=(10, 8))
+    
+    dH = H_vals[1] - H_vals[0] if len(H_vals) > 1 else 1.0
+    dA = A_vals[1] - A_vals[0] if len(A_vals) > 1 else 1.0
+    
+    H_edges = np.append(H_vals - dH/2, H_vals[-1] + dH/2)
+    A_edges = np.append(A_vals - dA/2, A_vals[-1] + dA/2)
+    A_mesh, H_mesh = np.meshgrid(A_edges, H_edges)
+    
+    # Plot using a sequential colormap
+    cmap = plt.cm.viridis.copy()
+    cmap.set_bad(color='#808080') # set color for NaN
+    
+    c = ax.pcolormesh(A_mesh, H_mesh, energy_diff_grid.T, cmap=cmap, edgecolors='none')
+    
+    cbar = plt.colorbar(c, ax=ax, pad=0.03)
+    cbar.set_label('Energy Difference $\\Delta E$ (2nd Lowest - Lowest)', rotation=270, labelpad=25, fontsize=13)
+    
+    ax.set_xlabel('Scaled Anisotropy ($A_s$)', fontsize=14, labelpad=10)
+    ax.set_ylabel('Scaled Magnetic Field ($H$)', fontsize=14, labelpad=10)
+    ax.set_title(title, fontsize=16, pad=20)
+    
+    ax.grid(color='white', alpha=0.3, linestyle='--', linewidth=0.5)
+    
+    plt.tight_layout()
+    plt.savefig(f"output/LLG/Graphs/{out_name}", dpi=300)
+    print(f"Saved high-res energy diff plot to 'output/LLG/Graphs/{out_name}'")
+    
+    plt.show()
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate Skyrmion Phase Diagram")
@@ -148,6 +230,16 @@ if __name__ == "__main__":
             A = data['A_vals']
             out_png = os.path.basename(sel_file).replace('.npz', '.png')
             plot_phase_diagram(grid, H, A, out_name=out_png)
+            
+            if 'energy_SkX' in data:
+                energies_dict = {
+                    'SkX': data['energy_SkX'],
+                    'SC': data['energy_SC'],
+                    'SP': data['energy_SP'],
+                    'FM': data['energy_FM']
+                }
+                out_diff_png = os.path.basename(sel_file).replace('.npz', '_energy_diff.png')
+                plot_energy_difference(energies_dict, H, A, out_name=out_diff_png)
         else:
             generate_phase_diagram(n_H=args.nH, n_A=args.nA, L=args.L)
     else:

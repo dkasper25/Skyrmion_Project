@@ -364,7 +364,8 @@ def relax_phase(spins, L, H_scaled, A_scaled, phase_name, ax_in=1.0, ay_in=1.0, 
             tiles_x, tiles_y = 1, 1 # Change here number of tiles that are live plotted
             tiled_spins = np.tile(spins, (tiles_x, tiles_y, 1))
             L_x, L_y = tiled_spins.shape[0], tiled_spins.shape[1]
-            X, Y = np.meshgrid(np.arange(L_x), np.arange(L_y))
+            X_base, Y_base = np.meshgrid(np.arange(L_x), np.arange(L_y))
+            X, Y = X_base * ax, Y_base * ay
             
             U = tiled_spins[:, :, 0].T
             V = tiled_spins[:, :, 1].T
@@ -376,16 +377,16 @@ def relax_phase(spins, L, H_scaled, A_scaled, phase_name, ax_in=1.0, ay_in=1.0, 
             rects = []
             for i in range(tiles_x):
                 for j in range(tiles_y):
-                    rect = plt.Rectangle((-0.5 + i*L, -0.5 + j*L), L, L, 
+                    rect = plt.Rectangle(((-0.5 + i*L)*ax, (-0.5 + j*L)*ay), L*ax, L*ay, 
                                        fill=False, edgecolor='black', linestyle='--', linewidth=1.5, alpha=0.5)
                     ax_plot.add_patch(rect)
                     rects.append((i, j, rect))
                     
-            ax_plot.set_xlim(-1, L_x)
-            ax_plot.set_ylim(-1, L_y)
+            ax_plot.set_xlim(-ax, L_x * ax)
+            ax_plot.set_ylim(-ay, L_y * ay)
             ax_plot.set_aspect('equal')
         else:
-            im = ax_plot.imshow(spins[:, :, 2], vmin=-1, vmax=1, cmap='bwr', origin='lower', extent=[0, L, 0, L])
+            im = ax_plot.imshow(spins[:, :, 2], vmin=-1, vmax=1, cmap='bwr', origin='lower', extent=[0, L*ax, 0, L*ay])
             ax_plot.set_aspect('equal')
 
         ax_plot.set_title(f"Relaxing {phase_name}...")
@@ -413,24 +414,22 @@ def relax_phase(spins, L, H_scaled, A_scaled, phase_name, ax_in=1.0, ay_in=1.0, 
                 Sz = tiled_spins[:, :, 2].T
                 q.set_UVC(U, V, Sz)
                 
-                # Update positions for dynamic scaling
-                if visualize_scaling:
-                    pts = np.column_stack((X.flatten() * ax, Y.flatten() * ay))
-                    q.set_offsets(pts)
+                # Always update positions for real physical scaling
+                pts = np.column_stack((X_base.flatten() * ax, Y_base.flatten() * ay))
+                q.set_offsets(pts)
+                
+                for (i, j, rect) in rects:
+                    rect.set_xy(((-0.5 + i*L)*ax, (-0.5 + j*L)*ay))
+                    rect.set_width(L * ax)
+                    rect.set_height(L * ay)
                     
-                    for (i, j, rect) in rects:
-                        rect.set_xy(((-0.5 + i*L)*ax, (-0.5 + j*L)*ay))
-                        rect.set_width(L * ax)
-                        rect.set_height(L * ay)
-                        
-                    ax_plot.set_xlim(-ax, L_x * ax)
-                    ax_plot.set_ylim(-ay, L_y * ay)
+                ax_plot.set_xlim(-ax, L_x * ax)
+                ax_plot.set_ylim(-ay, L_y * ay)
             else:
                 im.set_data(spins[:, :, 2])
-                if visualize_scaling:
-                    im.set_extent([0, L*ax, 0, L*ay])
-                    ax_plot.set_xlim(0, L*ax)
-                    ax_plot.set_ylim(0, L*ay)
+                im.set_extent([0, L*ax, 0, L*ay])
+                ax_plot.set_xlim(0, L*ax)
+                ax_plot.set_ylim(0, L*ay)
                 
             ax_plot.set_title(f"[{phase_name}] Step {steps_done} | f={f_tot:.4f} | ax={ax:.2f}, ay={ay:.2f}")
             plt.pause(0.02)

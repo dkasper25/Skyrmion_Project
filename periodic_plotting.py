@@ -48,7 +48,6 @@ def plot_periodic_structure(spins_file, tiles_x=2, tiles_y=2, display_mode="quiv
     
     if display_mode == "heatmap":
         im = plt.imshow(Sz, cmap=cmap, vmin=-1, vmax=1, origin='lower', extent=[-0.5 * ax, (L_x - 0.5) * ax, -0.5 * ay, (L_y - 0.5) * ay])
-        q = plt.quiver(X, Y, U, V, pivot='mid', scale=scale_val, width=0.005)
         plt.colorbar(im, label='Sz')
     elif display_mode == "quiver":
         q = plt.quiver(X, Y, U, V, Sz, cmap=cmap, pivot='mid', scale=scale_val, width=0.005)
@@ -59,7 +58,7 @@ def plot_periodic_structure(spins_file, tiles_x=2, tiles_y=2, display_mode="quiv
     for i in range(tiles_x):
         for j in range(tiles_y):
             rect = plt.Rectangle(((-0.5 + i*L) * ax, (-0.5 + j*L) * ay), L * ax, L * ay, 
-                               fill=False, edgecolor='black', linestyle='--', linewidth=1.5, alpha=0.5)
+                               fill=False, edgecolor='black', linestyle='--', linewidth=1, alpha=0.2)
             plt.gca().add_patch(rect)
             
     plt.title(f'Periodic Tiling ({tiles_x}x{tiles_y}) of {os.path.basename(spins_file)}')
