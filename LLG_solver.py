@@ -530,11 +530,25 @@ def compare_phases(H_scaled=0.08, A_scaled=0.5, L=64, npy_file=None, plot_ansatz
         results["Custom"] = f_cust
     # Determine Winner
     f_fm_val = results["FM"]
+    
+    states_dict = {
+        "SkX": (spins_skx, final_ax_skx, final_ay_skx),
+        "SC": (spins_sc, final_ax_sc, final_ay_sc),
+        "SP": (spins_sp, final_ax_sp, final_ay_sp)
+    }
+    if "Custom" in results:
+        states_dict["Custom"] = (spins_cust, final_ax_cust, final_ay_cust)
+        
     # If a structured phase collapsed into the FM state, it has unraveled. Discard its label.
-    for phase_key in ["SkX", "SC", "SP", "Custom"]:
-        if phase_key in results and abs(results[phase_key] - f_fm_val) < 1e-5:
-            print(f"[{phase_key}] completely unraveled into FM state during relaxation. Discarding its phase label.")
-            del results[phase_key]
+    for phase_key in list(results.keys()):
+        if phase_key in states_dict:
+            spins_k, ax_k, ay_k = states_dict[phase_key]
+            spin_var = np.var(spins_k, axis=(0, 1)).sum()
+            diverged = ax_k > 50.0 or ay_k > 50.0 or (ax_k / ay_k) > 100.0 or (ay_k / ax_k) > 100.0
+            
+            if abs(results[phase_key] - f_fm_val) < 1e-5 or spin_var < 1e-4 or diverged:
+                print(f"[{phase_key}] unraveled into a uniform phase (Periodicity Diverged). Discarding its phase label.")
+                del results[phase_key]
             
     winner = min(results, key=results.get)
     print(f"\n=> The Ground State Phase is: {winner} (Energy: {results[winner]:.5f})")

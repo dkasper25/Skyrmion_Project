@@ -286,11 +286,16 @@ def compare_fintemp_phases(args, save_outputs=True):
         else:
             print(f"\nRelaxing {phase_name} Phase at T=0 to optimize boundaries...")
             spins_init, ax_init, ay_init = init_fn(L_ansatz)
-            spins, f_tot_0K, ax, ay = relax_phase(spins_init, L_ansatz, H_scaled, A_scaled, phase_name, ax_in=ax_init, ay_in=ay_init, max_steps=50000, tol=1e-5, live_plot=False)
+            spins, f_tot_0K, ax, ay = relax_phase(spins_init, L_ansatz, H_scaled, A_scaled, phase_name, ax_in=ax_init, ay_in=ay_init, max_steps=50000, tol=1e-7, live_plot=False)
             print(f"-> T=0 Relaxation complete. Optimized bounds: ax={ax:.4f}, ay={ay:.4f} (Deterministic Energy: {f_tot_0K:.5f})")
+            # Additional structural check: if variance across lattice approaches zero, it is physically FM
+            # If the boundary dimensions geometrically diverge (e.g. ax > 5.0 meaning the period stretches 
+            # longer than the physical simulation scope), the structure is melting into a uniform phase.
+            spin_variance = np.var(spins, axis=(0, 1)).sum()
+            diverged = ax > 50.0 or ay > 50.0 or (ax / ay) > 100.0 or (ay / ax) > 100.0
             
-            if abs(f_tot_0K - f_fm_analytical) < 1e-4:
-                print(f"[{phase_name}] unraveled directly into the Ferromagnetic (FM) state. Skipping redundant finite-T SDE mapping!")
+            if abs(f_tot_0K - f_fm_analytical) < 1e-4 or spin_variance < 1e-4 or diverged:
+                print(f"[{phase_name}] unraveled directly into a uniform state (Periodicity Diverged). Skipping redundant finite-T SDE mapping!")
                 continue
                 
             print(f"Beginning Finite-Temperature SDE equilibration...")

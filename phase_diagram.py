@@ -1,3 +1,10 @@
+import os
+# CRITICAL: Prevent JAX from spanning infinite threads within multiprocessing workers!
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["JAX_CPU_DEFAULT_THREADS"] = "1"
+
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap, BoundaryNorm
@@ -252,6 +259,7 @@ if __name__ == "__main__":
     parser.add_argument("--nA", type=int, default=33, help="Number of points along the A axis")
     parser.add_argument("--L", type=int, default=32, help="Lattice size for relaxation")
     parser.add_argument("--recompute", action="store_true", help="Force recomputation even if data exists")
+    parser.add_argument("--workers", type=int, default=4, help="Number of parallel multiprocessing workers")
     
     args = parser.parse_args()
     
@@ -285,6 +293,6 @@ if __name__ == "__main__":
                 out_diff_png = os.path.basename(sel_file).replace('.npz', '_energy_diff.png')
                 plot_energy_difference(energies_dict, H, A, out_name=out_diff_png)
         else:
-            generate_phase_diagram(n_H=args.nH, n_A=args.nA, L=args.L)
+            generate_phase_diagram(n_H=args.nH, n_A=args.nA, L=args.L, workers=args.workers)
     else:
-        generate_phase_diagram(n_H=args.nH, n_A=args.nA, L=args.L)
+        generate_phase_diagram(n_H=args.nH, n_A=args.nA, L=args.L, workers=args.workers)

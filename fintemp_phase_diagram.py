@@ -1,5 +1,11 @@
-import numpy as np
 import os
+# CRITICAL: Prevent JAX from spanning infinite threads within multiprocessing workers!
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["JAX_CPU_DEFAULT_THREADS"] = "1"
+
+import numpy as np
 import sys
 import time
 import argparse
@@ -154,6 +160,7 @@ if __name__ == "__main__":
     parser.add_argument("--L", type=int, default=32, help="Lattice size")
     parser.add_argument("--steps", type=int, default=1000, help="SDE thermal equilibration steps per point")
     parser.add_argument("--block", type=int, default=100, help="SDE energy averaging block size")
+    parser.add_argument("--workers", type=int, default=4, help="Number of parallel multiprocessing workers")
     
     args = parser.parse_args()
-    generate_fintemp_phase_diagram(T_sel=args.T, n_H=args.nH, n_A=args.nA, L=args.L, steps=args.steps, block=args.block, workers=16)
+    generate_fintemp_phase_diagram(T_sel=args.T, n_H=args.nH, n_A=args.nA, L=args.L, steps=args.steps, block=args.block, workers=args.workers)
