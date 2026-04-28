@@ -132,7 +132,7 @@ def plot_spins(spins, step, current_T, display_mode="quiver", cmap_name="bwr"):
 def run_simulation(
     L=15, J=1.0, D=0.5, h_scaled=1.5, a_scaled=-0.5,
     T_start=1.0, T_target=0.01, steps=10000, 
-    cooling_protocol="continuous", initial_spins=None,
+    protocol_type="continuous", initial_spins=None,
     enable_plotting=False, save_mp4=False, 
     video_filename=None, output_filename=None, 
     dpi=300, display_mode="quiver", cmap_name="bwr"
@@ -175,13 +175,13 @@ def run_simulation(
         if not save_mp4:
             plt.ion()
         fig = plt.figure(figsize=(6, 5))
-        plot_every = max(1, steps // 100) # Save ~100 frames total
+        plot_every = max(1, steps // 1000) # Save ~100 frames total
         frames = []
     else:
         plot_every = max(1, steps // 10)  # Print to console 10 times during sim
     
-    # Setup Stepwise Cooling Schedule
-    if cooling_protocol == "stepwise":
+    # Setup Stepwise Schedule
+    if protocol_type == "stepwise":
         # Make the number of sweeps per temperature dependent on the number of spins
         sweeps_per_T = L * L
         total_t_steps = max(1, steps // sweeps_per_T)
@@ -191,19 +191,23 @@ def run_simulation(
     
     for step in range(steps):
         # Determine current temperature based on the selected protocol
-        if cooling_protocol == "continuous":
-            # Cool down from T_start down to T_target over the first 60% of steps
+        if protocol_type == "continuous":
+            # Anneal from T_start down to T_target over the first 60% of steps, then soak
             annealing_steps = int(steps * 0.6)
             if step < annealing_steps:
                 current_T = T_target + (T_start - T_target) * ((annealing_steps - step) / annealing_steps)
             else:
                 current_T = T_target
                 
-        elif cooling_protocol == "stepwise":
+        elif protocol_type == "heating":
+            # Linearly interpolate over 100% of the simulation steps (useful for tracing melting points)
+            current_T = T_start + (T_target - T_start) * (step / max(1, steps - 1))
+                
+        elif protocol_type == "stepwise":
             t_index = min(step // sweeps_per_T, len(t_schedule) - 1)
             current_T = t_schedule[t_index]
             
-        elif cooling_protocol == "constant":
+        elif protocol_type == "constant":
             current_T = T_target
             
         else:
@@ -245,7 +249,7 @@ def run_simulation(
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Monte Carlo Metropolis Skyrmion Simulation")
-    parser.add_argument("--L", type=int, default=15, help="Lattice size (L x L)")
+    parser.add_argument("--L", type=int, default=16, help="Lattice size (L x L)")
     parser.add_argument("--J", type=float, default=1.0, help="Exchange interaction")
     parser.add_argument("--D", type=float, default=0.5, help="DMI strength")
     parser.add_argument("--H", type=float, default=1.5, help="Scaled magnetic field")
@@ -253,15 +257,31 @@ if __name__ == '__main__':
     parser.add_argument("--T-start", type=float, default=1.0, help="Initial temperature")
     parser.add_argument("--T-target", type=float, default=0.01, help="Final/target temperature")
     parser.add_argument("--steps", type=int, default=10000, help="Number of Monte Carlo sweeps")
-    parser.add_argument("--protocol", type=str, choices=["continuous", "stepwise", "constant"], default="continuous", help="Cooling protocol")
+    parser.add_argument("--protocol", type=str, choices=["continuous", "stepwise", "constant", "heating"], default="continuous", help="Thermal protocol (continuous, heating, stepwise, constant)")
     parser.add_argument("--plot", action="store_true", help="Enable live plotting (or saving frames if --save-mp4 is used)")
     parser.add_argument("--save-mp4", action="store_true", help="Save the simulation as an MP4 video")
     parser.add_argument("--video-file", type=str, default=None, help="Output MP4 filename (if save_mp4 is enabled)")
     parser.add_argument("--out-npy", type=str, default=None, help="Output .npy spin configuration filename")
+    parser.add_argument("--start-file", type=str, default=None, help="Input .npy or .npz spin configuration to start from instead of random.")
     parser.add_argument("--mode", type=str, choices=["quiver", "heatmap"], default="quiver", help="Display mode for plotting")
     parser.add_argument("--cmap", type=str, default="bwr", help="Colormap for plotting")
     
     args = parser.parse_args()
+
+    init_spins = None
+    if args.start_file and os.path.exists(args.start_file):
+        print(f"Loading initial configuration from '{args.start_file}'...")
+        try:
+            data = np.load(args.start_file)
+            init_spins = data['spins'] if hasattr(data, 'files') and 'spins' in data.files else data
+            
+            if len(init_spins.shape) == 3 and init_spins.shape[2] == 3:
+                loaded_L = init_spins.shape[0]
+                if loaded_L != args.L:
+                    print(f"Note: Automatically overriding lattice size L={args.L} to L={loaded_L} to match input configuration.")
+                    args.L = loaded_L
+        except Exception as e:
+            print(f"Warning: Failed to load {args.start_file}: {e}")
 
     time1 = time.time()
     print("--- Starting MC Simulation ---")
@@ -269,7 +289,7 @@ if __name__ == '__main__':
     final_spins = run_simulation(
         L=args.L, J=args.J, D=args.D, h_scaled=args.H, a_scaled=args.A,
         T_start=args.T_start, T_target=args.T_target, steps=args.steps,
-        cooling_protocol=args.protocol, 
+        protocol_type=args.protocol, initial_spins=init_spins,
         enable_plotting=args.plot, save_mp4=args.save_mp4,
         video_filename=args.video_file, output_filename=args.out_npy,
         display_mode=args.mode, cmap_name=args.cmap
