@@ -6,8 +6,7 @@ import equinox as eqx
 import lineax as lx
 import argparse
 import os
-from LLG_solver import init_SkX, init_SC, init_SP, relax_phase, get_FM_energy
-
+from LLG_solver import init_SkX, init_SC, init_SP, relax_phase, get_FM_energy, analyze_state
 # ---------------------------------------------------------
 # SDE LLG using JAX + Diffrax
 # ---------------------------------------------------------
@@ -96,8 +95,8 @@ def diffusion_fn(t, y, args):
     return lx.FunctionLinearOperator(custom_mv, input_structure=jax.eval_shape(lambda: y))
 
 @eqx.filter_jit
-def simulate_block(t0, y0, args, key, sigma, dt, num_steps):
-    """Run a single block (chunk) of stochastic Heun integration."""
+def simulate_all_blocks(t0, y0, args, key, sigma, dt, num_steps, block_steps):
+    """Run full stochastic Heun integration and save at block intervals."""
     t1 = t0 + num_steps * dt
     # VirtualBrownianTree generates the stochastic paths deterministically seeded by 'key'
     bm = diffrax.VirtualBrownianTree(t0=t0, t1=t1, tol=dt/2, shape=y0.shape, key=key)
@@ -110,6 +109,14 @@ def simulate_block(t0, y0, args, key, sigma, dt, num_steps):
     # EulerHeun handles Stratonovich SDEs correctly
     solver = diffrax.EulerHeun()
     
+    num_saves = num_steps // block_steps
+    save_ts_list = [(i + 1) * block_steps * dt for i in range(num_saves)]
+    if num_steps % block_steps != 0:
+        save_ts_list.append(num_steps * dt)
+    save_ts = t0 + jnp.array(save_ts_list)
+    
+    saveat = diffrax.SaveAt(ts=save_ts)
+    
     sol = diffrax.diffeqsolve(
         terms,
         solver,
@@ -119,16 +126,17 @@ def simulate_block(t0, y0, args, key, sigma, dt, num_steps):
         y0=y0,
         args=args,
         stepsize_controller=diffrax.ConstantStepSize(),
-        max_steps=num_steps+2 # Allow buffer
+        saveat=saveat,
+        max_steps=num_steps+10 # Allow buffer
     )
     
-    y_final = sol.ys[0] 
+    y_snapshots = sol.ys 
     
     # Strict geometrical projection to |n|=1 to kill any numerical random walk drift
-    norm = jnp.linalg.norm(y_final, axis=-1, keepdims=True)
-    y_norm = y_final / jnp.where(norm > 1e-12, norm, 1.0)
+    norm = jnp.linalg.norm(y_snapshots, axis=-1, keepdims=True)
+    y_norm_snapshots = y_snapshots / jnp.where(norm > 1e-12, norm, 1.0)
     
-    return t1, y_norm
+    return save_ts, y_norm_snapshots
 
 # ---------------------------------------------------------
 # Utilities
@@ -224,20 +232,29 @@ def equilibrate_phase(spins_np, L_run, ax, ay, H_scaled, A_scaled, T_scaled, pha
         plt.show()
 
     key = jax.random.PRNGKey(args.seed)
-    steps_done = 0
     energy_history = []
     energy_terms_history = {'ex': [], 'dmi': [], 'z': [], 'a': []}
     
-    while steps_done < args.steps:
-        key, subkey = jax.random.split(key)
-        current_block_steps = min(args.block, args.steps - steps_done)
-        
-        t0, y0 = simulate_block(t0, y0, sim_args, subkey, sigma, args.dt, current_block_steps)
-        steps_done += current_block_steps
-        
-        # Evaluate thermodynamic energy at block boundaries
-        vals = get_energy_density(y0, ax, ay, H_scaled, A_scaled)
-        f_val, f_ex, f_dmi, f_z, f_a, norm_ex, norm_dmi, norm_z, norm_a = [float(x) for x in vals]
+    key, subkey = jax.random.split(key)
+    print(f"[{phase_name}] Simulating {args.steps} SDE steps (compiled loop)...")
+    ts, y_snapshots = simulate_all_blocks(t0, y0, sim_args, subkey, sigma, args.dt, args.steps, args.block)
+    
+    # Evaluate thermodynamic energy for all snapshots
+    vals_batched = jax.vmap(get_energy_density, in_axes=(0, None, None, None, None))(y_snapshots, ax, ay, H_scaled, A_scaled)
+    f_val_arr, f_ex_arr, f_dmi_arr, f_z_arr, f_a_arr, norm_ex_arr, norm_dmi_arr, norm_z_arr, norm_a_arr = [np.array(x) for x in vals_batched]
+    
+    num_saves = len(ts)
+    for i in range(num_saves):
+        if i < args.steps // args.block:
+            steps_done = (i + 1) * args.block
+        else:
+            steps_done = args.steps
+            
+        f_val = float(f_val_arr[i])
+        norm_ex = float(norm_ex_arr[i])
+        norm_dmi = float(norm_dmi_arr[i])
+        norm_z = float(norm_z_arr[i])
+        norm_a = float(norm_a_arr[i])
         
         # Wait until 30% of simulation has passed to clear initial transients
         if steps_done > 0.3 * args.steps:
@@ -248,7 +265,7 @@ def equilibrate_phase(spins_np, L_run, ax, ay, H_scaled, A_scaled, T_scaled, pha
             energy_terms_history['a'].append(norm_a)
             
         if live_plot:
-            current_spins_np = np.asarray(y0)
+            current_spins_np = np.asarray(y_snapshots[i])
             if live_mode == "quiver":
                 tiled_spins = np.tile(current_spins_np, (tiles_x, tiles_y, 1))
                 U = tiled_spins[:, :, 0].T
@@ -263,6 +280,9 @@ def equilibrate_phase(spins_np, L_run, ax, ay, H_scaled, A_scaled, T_scaled, pha
             if steps_done % (args.block * 10) == 0:
                 print(f"[{phase_name}] Progress: {steps_done}/{args.steps} steps... f_inst={f_val:.4f}")
                 
+    if num_saves > 0:
+        y0 = jnp.array(y_snapshots[-1])
+        
     if live_plot:
         plt.ioff()
         plt.close(fig)
@@ -304,9 +324,20 @@ def compare_fintemp_phases(args, save_outputs=True):
             print(f"\nEvaluating {phase_name}...")
             spins, ax, ay = init_fn(L_ansatz)
             final_spins, f_ax, f_ay, avg_energy, avg_terms = equilibrate_phase(spins, L_super, ax, ay, H_scaled, A_scaled, T_scaled, phase_name, args)
-            results[phase_name] = avg_energy
-            results_terms[phase_name] = avg_terms
-            states[phase_name] = (final_spins, f_ax, f_ay)
+            
+            stats = analyze_state(final_spins, f_ax, f_ay, phase_name=f"{phase_name}_fintemp", plot_fft=getattr(args, 'plot_fft', False))
+            actual_class = stats["classified_state"]
+            print(f"   -> Q={stats['Q']:.2f} | Geo: {stats['geometry']} ({stats['peaks']} Peaks) -> Detected as: {actual_class}")
+            
+            if actual_class != phase_name:
+                print(f"[{phase_name} Ansatz] defected and converged into -> {actual_class}! (Thermal Energy: {avg_energy:.5f})")
+            else:
+                print(f"[{phase_name} Ansatz] verified as pure {actual_class}. (Thermal Energy: {avg_energy:.5f})")
+
+            if actual_class not in results or avg_energy < results[actual_class]:
+                results[actual_class] = avg_energy
+                results_terms[actual_class] = avg_terms
+                states[actual_class] = (final_spins, f_ax, f_ay)
         else:
             print(f"\nRelaxing {phase_name} Phase at T=0 to optimize boundaries...")
             spins_init, ax_init, ay_init = init_fn(L_ansatz)
@@ -324,9 +355,20 @@ def compare_fintemp_phases(args, save_outputs=True):
                 
             print(f"Beginning Finite-Temperature SDE equilibration...")
             final_spins, f_ax, f_ay, avg_energy, avg_terms = equilibrate_phase(spins, L_super, ax, ay, H_scaled, A_scaled, T_scaled, phase_name, args)
-            results[phase_name] = avg_energy
-            results_terms[phase_name] = avg_terms
-            states[phase_name] = (final_spins, f_ax, f_ay)
+            
+            stats = analyze_state(final_spins, f_ax, f_ay, phase_name=f"{phase_name}_fintemp", plot_fft=getattr(args, 'plot_fft', False))
+            actual_class = stats["classified_state"]
+            print(f"   -> Q={stats['Q']:.2f} | Geo: {stats['geometry']} ({stats['peaks']} Peaks) -> Detected as: {actual_class}")
+            
+            if actual_class != phase_name:
+                print(f"[{phase_name} Ansatz] defected and converged into -> {actual_class}! (Thermal Energy: {avg_energy:.5f})")
+            else:
+                print(f"[{phase_name} Ansatz] verified as pure {actual_class}. (Thermal Energy: {avg_energy:.5f})")
+
+            if actual_class not in results or avg_energy < results[actual_class]:
+                results[actual_class] = avg_energy
+                results_terms[actual_class] = avg_terms
+                states[actual_class] = (final_spins, f_ax, f_ay)
         
     # Analyze the winner
     winner = min(results, key=results.get)
@@ -345,9 +387,9 @@ def compare_fintemp_phases(args, save_outputs=True):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Finite-Temperature SDE LLG Phase Evaluator")
-    parser.add_argument("--L", type=int, default=64, help="Grid size L for ansatz creation")
-    parser.add_argument("--L_super", type=int, default=None, help="Target supercell size (tiles the initial lattice)")
-    parser.add_argument("--H", type=float, default=0.08, help="Scaled magnetic field")
+    parser.add_argument("--L", type=int, default=32, help="Grid size L for ansatz creation")
+    parser.add_argument("--L_super", type=int, default=64, help="Target supercell size (tiles the initial lattice)")
+    parser.add_argument("--H", type=float, default=1, help="Scaled magnetic field")
     parser.add_argument("--A", type=float, default=0.5, help="Scaled Anisotropy")
     parser.add_argument("--T", type=float, default=0.05, help="Dimensionless Temperature")
     parser.add_argument("--dt", type=float, default=0.005, help="Integration step size")
@@ -356,6 +398,7 @@ if __name__ == "__main__":
     parser.add_argument("--seed", type=int, default=42, help="Random seed for PRNG")
     parser.add_argument("--no-plot", action="store_true", help="Disable live plotting")
     parser.add_argument("--live-mode", type=str, choices=["quiver", "heatmap"], default="quiver", help="Display mode for live plotting")
+    parser.add_argument("--plot-fft", action="store_true", help="Save Bragg peak FFT graphs of the relaxed phases to output directory")
     
     args = parser.parse_args()
     compare_fintemp_phases(args)

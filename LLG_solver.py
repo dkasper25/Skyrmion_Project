@@ -361,7 +361,15 @@ def analyze_state(spins, ax, ay, phase_name="Unknown", plot_fft=False):
     by checking physical gradients and Fast Fourier Transform (FFT) Bragg peaks.
     Properly maps continuous scale (ax, ay) directly into reciprocal resolution.
     """
-    n = spins
+    import scipy.ndimage
+    # Light Gaussian blur to filter out finite-temperature high-frequency magnons (noise)
+    # This stabilizes both the topological charge derivatives and the FFT peak detection.
+    n_smoothed = scipy.ndimage.gaussian_filter(spins, sigma=[1.0, 1.0, 0], mode='wrap')
+    
+    # Re-normalize after smoothing
+    norm = np.linalg.norm(n_smoothed, axis=-1, keepdims=True)
+    n = n_smoothed / np.where(norm > 1e-12, norm, 1.0)
+    
     n_right = np.roll(n, -1, axis=0)
     n_left = np.roll(n, 1, axis=0)
     n_up = np.roll(n, -1, axis=1)
@@ -387,38 +395,65 @@ def analyze_state(spins, ax, ay, phase_name="Unknown", plot_fft=False):
     power[L_x//2, L_y//2] = 0.0
     
     max_power = np.max(power)
-    tol = 1e-4
-    is_uniform = max_power < tol
+    
+    # Use spatial variance of the smoothed spin field to reliably detect Uniform/FM states
+    # Structural phases (SkX, SC, SP) have macroscopic variance > 0.05. Thermal noise variance is < 0.01.
+    is_uniform = np.var(n[:, :, 2]) < 0.01
+    
     num_peaks = 0
     mask = None
     geometry = "Uniform (FM)"
     
     if not is_uniform:
         import scipy.ndimage
-        mask = power > (max_power * 0.25)
+        # Set max_power threshold really low to capture higher harmonics
+        mask = power > (max_power * 0.4)
         # Contiguous cluster linking. Use 4-connectivity (2, 1) to prevent 
         # distinct diagonal Bragg peaks from merging together on tight grid scales.
         s = scipy.ndimage.generate_binary_structure(2, 1)
-        _, num_peaks = scipy.ndimage.label(mask, structure=s)
+        labels, num_peaks = scipy.ndimage.label(mask, structure=s)
         
-        # Symmetry classification supporting higher order harmonics
-        if num_peaks % 2 != 0:
-            # Odd number of peaks strictly violates continuous spatial symmetries
-            geometry = "Distorted Lattice"
-        elif num_peaks % 12 == 0:
-            # LCM of 4 and 6 (e.g. 12, 24). Structurally ambiguous without amplitude sorting.
-            geometry = "Distorted Lattice"
-        elif num_peaks % 6 == 0:
-            # Multiples of 6 (6, 18, 30) not sharing multiples of 4
-            geometry = "2D Hexagonal"
-        elif num_peaks % 4 == 0:
-            # Multiples of 4 (4, 8, 16, 20) not sharing multiples of 6
-            geometry = "2D Square"
-        elif num_peaks % 2 == 0 and abs(Q) < 0.1:
-            # Remaining even numbers (2, 10, 14, 22)
-            geometry = "1D Spiral"
+        # Determine if peaks are collinear (1D) or spread out (2D)
+        if num_peaks > 0:
+            peak_centers = scipy.ndimage.center_of_mass(mask, labels, np.arange(1, num_peaks + 1))
+            # peak_centers is a list of (y, x) tuples
+            dy = np.array([p[0] for p in peak_centers]) - (L_x // 2)
+            dx = np.array([p[1] for p in peak_centers]) - (L_y // 2)
+            
+            # Calculate angles, double them (to ignore pi phase shifts), and find phase coherence R
+            angles = np.arctan2(dy, dx)
+            v_x = np.cos(2 * angles)
+            v_y = np.sin(2 * angles)
+            R = np.sqrt(np.mean(v_x)**2 + np.mean(v_y)**2)
+            
+            # If num_peaks is 1, it might be a contiguous ring around the center (common for tight square lattices)
+            if num_peaks == 1:
+                coords = np.argwhere(mask)
+                height = np.max(coords[:, 0]) - np.min(coords[:, 0])
+                width = np.max(coords[:, 1]) - np.min(coords[:, 1])
+                # Distinguish a 1D line from a 2D ring based on bounding box aspect ratio
+                is_collinear = (height < 2) or (width < 2) or (max(height, width) / max(min(height, width), 1) > 2.0)
+            else:
+                is_collinear = R > 0.9
         else:
-            geometry = "Distorted Lattice"
+            is_collinear = False
+            
+        # Decouple topology and geometry to handle phases that defect into Skyrmionic topologies (like SC)
+        if num_peaks == 0:
+            geometry = "Uniform (FM)"
+        elif is_collinear:
+            if num_peaks % 2 == 0 or num_peaks == 1:
+                geometry = "1D Spiral"
+            else:
+                geometry = "Distorted Lattice"
+        else:
+            if num_peaks % 6 == 0:
+                geometry = "2D Hexagonal"
+            elif num_peaks % 4 == 0 or num_peaks in [1, 8, 9, 12]:
+                geometry = "2D Square"
+            else:
+                geometry = "Distorted Lattice"
+                
     # 3. Topology Classification
     topology = "Skyrmionic" if (not is_uniform and abs(Q) > 0.5) else "Trivial"
     
@@ -429,7 +464,7 @@ def analyze_state(spins, ax, ay, phase_name="Unknown", plot_fft=False):
             classified_state = "SkX"
         elif geometry == "2D Square":
             classified_state = "SC"
-        elif geometry == "1D Spiral":
+        elif geometry == "1D Spiral" and abs(Q) < 0.5:
             classified_state = "SP"
         else:
             classified_state = "Unknown Phase"
