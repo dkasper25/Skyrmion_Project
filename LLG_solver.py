@@ -315,20 +315,29 @@ def relax_phase_numba(spins, L, H_scaled, A_scaled, max_steps=50000, tol=1e-7, a
                 spins_next[i, j, 1] = n_new_y / norm
                 spins_next[i, j, 2] = n_new_z / norm
 
-        # Dynamic Scaling Strategy
+        # Dynamic Scaling Strategy: Use a low-pass filter (EMA) to dampen vicious cycles
+        alpha_scale = 0.01
         if abs(E_dmi_x) > 1e-12 and abs(E_ex_x) > 1e-12:
             # We strictly enforce the positive root of the energy minimization polynomial
-            # ax = 2.0 * Ex / |DMI| guarantees the mathematically required increase in period when DMI is small/Exchange is large.
-            ax = 2.0 * E_ex_x / abs(E_dmi_x)
+            target_ax = 2.0 * E_ex_x / abs(E_dmi_x)
+            ax = (1.0 - alpha_scale) * ax + alpha_scale * target_ax
         if abs(E_dmi_y) > 1e-12 and abs(E_ex_y) > 1e-12:
-            ay = 2.0 * E_ex_y / abs(E_dmi_y)
+            target_ay = 2.0 * E_ex_y / abs(E_dmi_y)
+            ay = (1.0 - alpha_scale) * ay + alpha_scale * target_ay
+
+        # Enforce isotropy for 1D states to prevent extreme aspect ratios 
+        # which break the continuum Laplacian and ruin SDE condition numbers
+        if abs(E_dmi_y) <= 1e-10 and abs(E_ex_y) <= 1e-10 and abs(E_dmi_x) > 1e-10:
+            ay = ax
+        if abs(E_dmi_x) <= 1e-10 and abs(E_ex_x) <= 1e-10 and abs(E_dmi_y) > 1e-10:
+            ax = ay
             
         # Optional clamping
         if ax <= 0: ax = ax_in
         if ay <= 0: ay = ay_in
 
         # Check convergence
-        if (global_step_start + step) > 1000 and abs(f_tot - prev_f) < tol:
+        if (global_step_start + step) > 3000 and abs(f_tot - prev_f) < tol:
             # We must break here and transfer the output
             spins_current[:] = spins_next[:]
             break
@@ -343,8 +352,130 @@ def relax_phase_numba(spins, L, H_scaled, A_scaled, max_steps=50000, tol=1e-7, a
     return spins_current, f_tot, ax, ay, step
 
 # ---------------------------------------------------------
-# Part D & E: Execution Wrapper
+# Part D & E: Execution Wrapper & Analysis
 # ---------------------------------------------------------
+
+def analyze_state(spins, ax, ay, phase_name="Unknown", plot_fft=False):
+    """
+    Computes Topological Charge (Q) and categorizes phase symmetry 
+    by checking physical gradients and Fast Fourier Transform (FFT) Bragg peaks.
+    Properly maps continuous scale (ax, ay) directly into reciprocal resolution.
+    """
+    n = spins
+    n_right = np.roll(n, -1, axis=0)
+    n_left = np.roll(n, 1, axis=0)
+    n_up = np.roll(n, -1, axis=1)
+    n_down = np.roll(n, 1, axis=1)
+    
+    dn_dx = (n_right - n_left) / (2.0 * ax)
+    dn_dy = (n_up - n_down) / (2.0 * ay)
+    
+    # 1. Topological Charge (Q) via Cross Product continuous projection
+    charge_density = np.sum(n * np.cross(dn_dx, dn_dy), axis=-1) * ax * ay
+    Q = np.sum(charge_density) / (4.0 * np.pi)
+    
+    # 2. Geometry via FFT Analysis
+    Mz = np.mean(n[:, :, 2])
+    n_z = n[:, :, 2]
+    
+    # Remove DC (Uniform) component to isolate structural periodicity
+    fft_z = np.fft.fftshift(np.fft.fft2(n_z - Mz))
+    power = np.abs(fft_z)**2
+    
+    # Explicitly enforce DC bin = 0.0 to prevent bleed 
+    L_x, L_y = n_z.shape
+    power[L_x//2, L_y//2] = 0.0
+    
+    max_power = np.max(power)
+    tol = 1e-4
+    is_uniform = max_power < tol
+    num_peaks = 0
+    mask = None
+    geometry = "Uniform (FM)"
+    
+    if not is_uniform:
+        import scipy.ndimage
+        mask = power > (max_power * 0.25)
+        # Contiguous cluster linking. Use 4-connectivity (2, 1) to prevent 
+        # distinct diagonal Bragg peaks from merging together on tight grid scales.
+        s = scipy.ndimage.generate_binary_structure(2, 1)
+        _, num_peaks = scipy.ndimage.label(mask, structure=s)
+        
+        # Symmetry classification supporting higher order harmonics
+        if num_peaks % 2 != 0:
+            # Odd number of peaks strictly violates continuous spatial symmetries
+            geometry = "Distorted Lattice"
+        elif num_peaks % 12 == 0:
+            # LCM of 4 and 6 (e.g. 12, 24). Structurally ambiguous without amplitude sorting.
+            geometry = "Distorted Lattice"
+        elif num_peaks % 6 == 0:
+            # Multiples of 6 (6, 18, 30) not sharing multiples of 4
+            geometry = "2D Hexagonal"
+        elif num_peaks % 4 == 0:
+            # Multiples of 4 (4, 8, 16, 20) not sharing multiples of 6
+            geometry = "2D Square"
+        elif num_peaks % 2 == 0 and abs(Q) < 0.1:
+            # Remaining even numbers (2, 10, 14, 22)
+            geometry = "1D Spiral"
+        else:
+            geometry = "Distorted Lattice"
+    # 3. Topology Classification
+    topology = "Skyrmionic" if (not is_uniform and abs(Q) > 0.5) else "Trivial"
+    
+    # 4. Final Definitive State Mapping
+    classified_state = "FM"
+    if not is_uniform:
+        if geometry == "2D Hexagonal" and topology == "Skyrmionic":
+            classified_state = "SkX"
+        elif geometry == "2D Square":
+            classified_state = "SC"
+        elif geometry == "1D Spiral":
+            classified_state = "SP"
+        else:
+            classified_state = "Unknown Phase"
+            
+    if plot_fft:
+        import matplotlib.pyplot as plt
+        fig, axs = plt.subplots(1, 2, figsize=(10, 5))
+        
+        L_x, L_y = n_z.shape
+        extent_real = [-0.5 * L_x * ax, 0.5 * L_x * ax, -0.5 * L_y * ay, 0.5 * L_y * ay]
+        
+        axs[0].imshow(n_z.T, cmap='bwr', extent=extent_real, origin='lower')
+        axs[0].set_title(f"Real Space ($n_z$) - {phase_name}")
+        axs[0].set_xlabel("X (Physical)")
+        axs[0].set_ylabel("Y (Physical)")
+        
+        if is_uniform:
+            axs[1].text(0.5, 0.5, "Uniform State\n(No Peaks)", ha='center', va='center')
+            axs[1].axis('off')
+        else:
+            # Calculate physical k-space bounds
+            k_max_x = np.pi / ax
+            k_max_y = np.pi / ay
+            extent_k = [-k_max_x, k_max_x, -k_max_y, k_max_y]
+            
+            im = axs[1].imshow(np.log10(power.T + 1e-12), cmap='magma', extent=extent_k, origin='lower', interpolation='bicubic')
+            axs[1].set_title(f"Reciprocal Power Spectrum (Log)\n{num_peaks} Fundamental Peaks")
+            axs[1].set_xlabel(r"$k_x$")
+            axs[1].set_ylabel(r"$k_y$")
+            axs[1].contour(mask.T, levels=[0.5], colors='cyan', linewidths=2, extent=extent_k)
+            
+        plt.tight_layout()
+        os.makedirs("output/LLG/Graphs", exist_ok=True)
+        outpath = f"output/LLG/Graphs/FFT_{phase_name}.png"
+        plt.savefig(outpath, dpi=150)
+        plt.close(fig)
+        
+    return {
+        "Q": Q, 
+        "Mz": Mz, 
+        "geometry": geometry, 
+        "topology": topology, 
+        "peaks": num_peaks, 
+        "is_uniform": is_uniform,
+        "classified_state": classified_state
+    }
 
 def relax_phase(spins, L, H_scaled, A_scaled, phase_name, ax_in=1.0, ay_in=1.0, max_steps=50000, tol=1e-7, live_plot=False, live_mode="quiver", max_dt=0.05, cfl_factor=0.25, visualize_scaling=False):
     """
@@ -462,7 +593,7 @@ def get_FM_energy(H_scaled, A_scaled):
             
     return min(e_aligned, e_anti_aligned, e_tilted)
 
-def compare_phases(H_scaled=0.08, A_scaled=0.5, L=64, npy_file=None, plot_ansatz=False, live_plot=False, live_mode="quiver", max_dt=0.05, cfl_factor=0.25, visualize_scaling=False, plot_groundstate=False, save_outputs=True):
+def compare_phases(H_scaled=0.08, A_scaled=0.5, L=64, npy_file=None, plot_ansatz=False, live_plot=False, live_mode="quiver", max_dt=0.05, cfl_factor=0.25, visualize_scaling=False, plot_groundstate=False, save_outputs=True, plot_fft=False):
     """
     Main Execution: Tests SkX, SP, and FM to find the true numerical ground state.
     """
@@ -481,7 +612,8 @@ def compare_phases(H_scaled=0.08, A_scaled=0.5, L=64, npy_file=None, plot_ansatz
             plot_periodic_structure("output/LLG/Ansatze/ansatz_SkX.npz", tiles_x=2, tiles_y=2, display_mode="quiver", ax=ax_skx, ay=ay_skx)
         except: pass
     spins_skx, f_skx, final_ax_skx, final_ay_skx = relax_phase(spins_skx, L, H_scaled, A_scaled, "SkX", ax_in=ax_skx, ay_in=ay_skx, live_plot=live_plot, live_mode=live_mode, max_dt=max_dt, cfl_factor=cfl_factor, visualize_scaling=visualize_scaling)
-    results["SkX"] = f_skx
+    stats_skx = analyze_state(spins_skx, final_ax_skx, final_ay_skx, phase_name="SkX", plot_fft=plot_fft)
+    print(f"   -> Q={stats_skx['Q']:.2f} | Geo: {stats_skx['geometry']} ({stats_skx['peaks']} Peaks) -> Detected as: {stats_skx['classified_state']}")
     
     # 2. Square Cell 
     print("Initializing SC...")
@@ -495,7 +627,8 @@ def compare_phases(H_scaled=0.08, A_scaled=0.5, L=64, npy_file=None, plot_ansatz
             plot_periodic_structure("output/LLG/Ansatze/ansatz_SC.npz", tiles_x=2, tiles_y=2, display_mode="quiver", ax=ax_sc, ay=ay_sc)
         except: pass
     spins_sc, f_sc, final_ax_sc, final_ay_sc = relax_phase(spins_sc, L, H_scaled, A_scaled, "SC", ax_in=ax_sc, ay_in=ay_sc, live_plot=live_plot, live_mode=live_mode, max_dt=max_dt, cfl_factor=cfl_factor, visualize_scaling=visualize_scaling)
-    results["SC"] = f_sc
+    stats_sc = analyze_state(spins_sc, final_ax_sc, final_ay_sc, phase_name="SC", plot_fft=plot_fft)
+    print(f"   -> Q={stats_sc['Q']:.2f} | Geo: {stats_sc['geometry']} ({stats_sc['peaks']} Peaks) -> Detected as: {stats_sc['classified_state']}")
     
     # 3. Spiral Phase
     print("Initializing SP...")
@@ -509,12 +642,12 @@ def compare_phases(H_scaled=0.08, A_scaled=0.5, L=64, npy_file=None, plot_ansatz
             plot_periodic_structure("output/LLG/Ansatze/ansatz_SP.npz", tiles_x=2, tiles_y=2, display_mode="quiver", ax=ax_sp, ay=ay_sp)
         except: pass
     spins_sp, f_sp, final_ax_sp, final_ay_sp = relax_phase(spins_sp, L, H_scaled, A_scaled, "SP", ax_in=ax_sp, ay_in=ay_sp, live_plot=live_plot, live_mode=live_mode, max_dt=max_dt, cfl_factor=cfl_factor, visualize_scaling=visualize_scaling)
-    results["SP"] = f_sp
+    stats_sp = analyze_state(spins_sp, final_ax_sp, final_ay_sp, phase_name="SP", plot_fft=plot_fft)
+    print(f"   -> Q={stats_sp['Q']:.2f} | Geo: {stats_sp['geometry']} ({stats_sp['peaks']} Peaks) -> Detected as: {stats_sp['classified_state']}")
     
     # 4. Ferromagnetic
     f_fm = get_FM_energy(H_scaled, A_scaled)
     print(f"[FM] Analytical Energy Density: {f_fm:.5f}")
-    results["FM"] = f_fm
     
     # 5. Custom Ansatz (Optional)
     if npy_file and os.path.exists(npy_file):
@@ -527,54 +660,61 @@ def compare_phases(H_scaled=0.08, A_scaled=0.5, L=64, npy_file=None, plot_ansatz
                 plot_periodic_structure(npy_file, tiles_x=2, tiles_y=2, display_mode="quiver", ax=ax_cust, ay=ay_cust)
             except: pass
         spins_cust, f_cust, final_ax_cust, final_ay_cust = relax_phase(spins_cust, L, H_scaled, A_scaled, "Custom", ax_in=ax_cust, ay_in=ay_cust, live_plot=live_plot, live_mode=live_mode, max_dt=max_dt, cfl_factor=cfl_factor)
-        results["Custom"] = f_cust
-    # Determine Winner
-    f_fm_val = results["FM"]
+        stats_cust = analyze_state(spins_cust, final_ax_cust, final_ay_cust, phase_name="Custom", plot_fft=plot_fft)
+    # -------------------------------------------------------------
+    # Phase Classification and Energy Dynamic Mapping
+    # -------------------------------------------------------------
+    final_energies = {"FM": f_fm}  # FM limit is analytically guaranteed
+    best_states = {} # Save winning spins mapped to true physical label
     
-    states_dict = {
-        "SkX": (spins_skx, final_ax_skx, final_ay_skx),
-        "SC": (spins_sc, final_ax_sc, final_ay_sc),
-        "SP": (spins_sp, final_ax_sp, final_ay_sp)
-    }
-    if "Custom" in results:
-        states_dict["Custom"] = (spins_cust, final_ax_cust, final_ay_cust)
+    candidates = [
+        ("SkX", spins_skx, final_ax_skx, final_ay_skx, f_skx, stats_skx),
+        ("SC", spins_sc, final_ax_sc, final_ay_sc, f_sc, stats_sc),
+        ("SP", spins_sp, final_ax_sp, final_ay_sp, f_sp, stats_sp)
+    ]
+    if npy_file and os.path.exists(npy_file):
+        candidates.append(("Custom", spins_cust, final_ax_cust, final_ay_cust, f_cust, stats_cust))
         
-    # If a structured phase collapsed into the FM state, it has unraveled. Discard its label.
-    for phase_key in list(results.keys()):
-        if phase_key in states_dict:
-            spins_k, ax_k, ay_k = states_dict[phase_key]
-            spin_var = np.var(spins_k, axis=(0, 1)).sum()
-            diverged = ax_k > 50.0 or ay_k > 50.0 or (ax_k / ay_k) > 100.0 or (ay_k / ax_k) > 100.0
+    print("\n--- Validation & Classification ---")
+    for ansatz_name, spins_k, ax_k, ay_k, f_k, stats_k in candidates:
+        actual_class = stats_k["classified_state"]
+        
+        # Grid Divergence Checks (Unphysical SDE numerical breakdown)
+        diverged_grid = ax_k > 50.0 or ay_k > 50.0 or (ax_k / ay_k) > 3.0 or (ay_k / ax_k) > 3.0
+        unraveled_to_fm = abs(f_k - f_fm) < 1e-4 or stats_k["is_uniform"]
+        
+        if diverged_grid:
+            print(f"[{ansatz_name} Ansatz] Diverged scaling grid (ax={ax_k:.1f}, ay={ay_k:.1f}). Discarded.")
+            continue
             
-            if abs(results[phase_key] - f_fm_val) < 1e-5 or spin_var < 1e-4 or diverged:
-                print(f"[{phase_key}] unraveled into a uniform phase (Periodicity Diverged). Discarding its phase label.")
-                del results[phase_key]
+        if unraveled_to_fm:
+            # We already have the true analytical FM energy populated, so ignore numeric approximations
+            continue
             
-    winner = min(results, key=results.get)
-    print(f"\n=> The Ground State Phase is: {winner} (Energy: {results[winner]:.5f})")
+        if actual_class == "Unknown Phase":
+            print(f"[{ansatz_name} Ansatz] Relaxed into {stats_k['geometry']} with Q={stats_k['Q']:.2f}. Discarded as Unverified.")
+            continue
+            
+        # Log defections gracefully
+        if actual_class != ansatz_name:
+            print(f"[{ansatz_name} Ansatz] defected and converged into -> {actual_class}! (Energy: {f_k:.5f})")
+        else:
+            print(f"[{ansatz_name} Ansatz] verified as pure {actual_class}. (Energy: {f_k:.5f})")
+            
+        # Add to the energy pool for the specific physical state it represents
+        if actual_class not in final_energies or f_k < final_energies[actual_class]:
+            final_energies[actual_class] = f_k
+            best_states[actual_class] = (spins_k, ax_k, ay_k)
+            
+    # Determine the global numerical winner (the lowest valid energy branch)
+    winner = min(final_energies, key=final_energies.get)
+    print(f"\n=> The Ground State Phase is: {winner} (Energy: {final_energies[winner]:.5f})")
     
-    # Extract the winning spins array and save it
-    best_spins = None
-    best_ax = 1.0
-    best_ay = 1.0
-    if winner == "SkX": 
-        best_spins = spins_skx
-        best_ax = final_ax_skx
-        best_ay = final_ay_skx
-    elif winner == "SC": 
-        best_spins = spins_sc
-        best_ax = final_ax_sc
-        best_ay = final_ay_sc
-    elif winner == "SP": 
-        best_spins = spins_sp
-        best_ax = final_ax_sp
-        best_ay = final_ay_sp
-    elif winner == "Custom":
-        best_spins = spins_cust
-        best_ax = final_ax_cust
-        best_ay = final_ay_cust
-    elif winner == "FM":
-        # Synthesize a pure mathematical FM uniform state
+    # Extract the winning spins configuration for saving/plotting
+    best_spins, best_ax, best_ay = None, 1.0, 1.0
+    
+    if winner == "FM":
+        # Synthesize a pure continuous mathematical FM uniform state
         best_spins = np.zeros((L, L, 3))
         if f_fm == A_scaled - H_scaled:
             best_spins[:, :, 2] = 1.0 # Aligned UP
@@ -585,6 +725,8 @@ def compare_phases(H_scaled=0.08, A_scaled=0.5, L=64, npy_file=None, plot_ansatz
             nx = np.sqrt(abs(1.0 - nz**2))
             best_spins[:, :, 0] = nx # Tilted
             best_spins[:, :, 2] = nz
+    else:
+        best_spins, best_ax, best_ay = best_states[winner]
             
     if best_spins is not None:
         out_name = f"output/LLG/Groundstates/LLG_groundstate_L{L}_A{A_scaled:.2f}_H{H_scaled:.2f}.npz"
@@ -593,30 +735,31 @@ def compare_phases(H_scaled=0.08, A_scaled=0.5, L=64, npy_file=None, plot_ansatz
             print(f"Saved numerical ground state to '{out_name}'")
         
         if plot_groundstate:
-            # Auto-plot
             try:
                 from periodic_plotting import plot_periodic_structure
                 print("Launching periodic plot...")
                 plot_periodic_structure(out_name, tiles_x=2, tiles_y=2, display_mode="quiver", ax=best_ax, ay=best_ay)
             except Exception as e:
                 print(f"Could not load periodic_plotting to display: {e}")
-    
-    return winner, results
+                
+    return winner, final_energies
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Deterministic LLG Phase Analyzer")
     parser.add_argument("--H", type=float, default=1.0, help="Scaled magnetic field")
     parser.add_argument("--A", type=float, default=0.8, help="Scaled Anisotropy")
-    parser.add_argument("--L", type=int, default=64, help="Grid size L")
+    parser.add_argument("--L", type=int, default=32, help="Grid size L")
     parser.add_argument("--npy", type=str, default=None, help="Optional MC .npy or .npz file to use as an ansatz")
     parser.add_argument("--plot-ansatz", action="store_true", help="Plot each ansatz configuration before relaxing")
     parser.add_argument("--live-plot", action="store_true", help="Plot the real-time evolution of the solver")
     parser.add_argument("--live-mode", type=str, choices=["quiver", "heatmap"], default="quiver", help="Display mode for live plotting")
     parser.add_argument("--vis-scale", action="store_true", help="Turn on dynamic scaling visualization during live plotting")
     parser.add_argument("--plot-groundstate", action="store_true", help="Plot the final ground state configuration at the end")
+    parser.add_argument("--plot-fft", action="store_true", help="Save Bragg peak FFT graphs of the relaxed phases to output directory")
     parser.add_argument("--max-dt", type=float, default=0.05, help="Maximum integration timestep")
     parser.add_argument("--cfl", type=float, default=0.25, help="CFL stability factor for dynamic timestep")
     
     args = parser.parse_args()
     
-    compare_phases(H_scaled=args.H, A_scaled=args.A, L=args.L, npy_file=args.npy, plot_ansatz=args.plot_ansatz, live_plot=args.live_plot, live_mode=args.live_mode, max_dt=args.max_dt, cfl_factor=args.cfl, visualize_scaling=args.vis_scale, plot_groundstate=args.plot_groundstate)
+    compare_phases(H_scaled=args.H, A_scaled=args.A, L=args.L, npy_file=args.npy, plot_ansatz=args.plot_ansatz, live_plot=args.live_plot, live_mode=args.live_mode, max_dt=args.max_dt, cfl_factor=args.cfl, visualize_scaling=args.vis_scale, plot_groundstate=args.plot_groundstate, plot_fft=args.plot_fft)
+

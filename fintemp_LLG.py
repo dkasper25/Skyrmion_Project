@@ -59,9 +59,17 @@ def get_energy_density(y, ax, ay, H_scaled, A_scaled):
     E_z = H_scaled * y_unit[..., 2]
     E_a = A_scaled * y_unit[..., 2]**2
     
-    E_tot = (E_ex_x / ax**2) + (E_ex_y / ay**2) + (E_dmi_x / ax) + (E_dmi_y / ay) + E_z + E_a
-    f_tot = jnp.mean(E_tot)
-    return f_tot
+    f_ex = jnp.mean((E_ex_x / ax**2) + (E_ex_y / ay**2))
+    f_dmi = jnp.mean((E_dmi_x / ax) + (E_dmi_y / ay))
+    f_z = jnp.mean(E_z)
+    f_a = jnp.mean(E_a)
+    f_tot = f_ex + f_dmi + f_z + f_a
+    
+    # Pure dimensionless per-bond energies to decouple visualization from lattice density
+    norm_ex = jnp.mean(E_ex_x + E_ex_y)
+    norm_dmi = jnp.mean(E_dmi_x + E_dmi_y)
+    
+    return f_tot, f_ex, f_dmi, f_z, f_a, norm_ex, norm_dmi, f_z, f_a
 
 def drift_fn(t, y, args):
     """Deterministic LLG Step: dn/dt = H_eff - (n . H_eff)n"""
@@ -177,7 +185,8 @@ def equilibrate_phase(spins_np, L_run, ax, ay, H_scaled, A_scaled, T_scaled, pha
         spins_np = np.tile(spins_np, (reps, reps, 1))
         L_x, L_y = spins_np.shape[0], spins_np.shape[1]
     
-    sigma = np.sqrt(2.0 * T_scaled)
+    # Thermodynamic proper SDE noise scaling for continuous finite-volume cells
+    sigma = np.sqrt(2.0 * T_scaled / (ax * ay))
     y0 = jnp.array(spins_np, dtype=jnp.float32)
     t0 = jnp.array(0.0)
     sim_args = (jnp.float32(ax), jnp.float32(ay), jnp.float32(H_scaled), jnp.float32(A_scaled), jnp.float32(sigma))
@@ -217,6 +226,7 @@ def equilibrate_phase(spins_np, L_run, ax, ay, H_scaled, A_scaled, T_scaled, pha
     key = jax.random.PRNGKey(args.seed)
     steps_done = 0
     energy_history = []
+    energy_terms_history = {'ex': [], 'dmi': [], 'z': [], 'a': []}
     
     while steps_done < args.steps:
         key, subkey = jax.random.split(key)
@@ -226,10 +236,16 @@ def equilibrate_phase(spins_np, L_run, ax, ay, H_scaled, A_scaled, T_scaled, pha
         steps_done += current_block_steps
         
         # Evaluate thermodynamic energy at block boundaries
-        f_val = float(get_energy_density(y0, ax, ay, H_scaled, A_scaled))
+        vals = get_energy_density(y0, ax, ay, H_scaled, A_scaled)
+        f_val, f_ex, f_dmi, f_z, f_a, norm_ex, norm_dmi, norm_z, norm_a = [float(x) for x in vals]
+        
         # Wait until 30% of simulation has passed to clear initial transients
         if steps_done > 0.3 * args.steps:
             energy_history.append(f_val)
+            energy_terms_history['ex'].append(norm_ex)
+            energy_terms_history['dmi'].append(norm_dmi)
+            energy_terms_history['z'].append(norm_z)
+            energy_terms_history['a'].append(norm_a)
             
         if live_plot:
             current_spins_np = np.asarray(y0)
@@ -252,8 +268,14 @@ def equilibrate_phase(spins_np, L_run, ax, ay, H_scaled, A_scaled, T_scaled, pha
         plt.close(fig)
         
     avg_energy = np.mean(energy_history) if energy_history else f_val
+    avg_terms = {
+        'ex': np.mean(energy_terms_history['ex']) if energy_terms_history['ex'] else f_ex,
+        'dmi': np.mean(energy_terms_history['dmi']) if energy_terms_history['dmi'] else f_dmi,
+        'z': np.mean(energy_terms_history['z']) if energy_terms_history['z'] else f_z,
+        'a': np.mean(energy_terms_history['a']) if energy_terms_history['a'] else f_a
+    }
     print(f"[{phase_name}] Equilibration complete. Thermal Energy Density: {avg_energy:.5f}")
-    return np.asarray(y0), ax, ay, avg_energy
+    return np.asarray(y0), ax, ay, avg_energy, avg_terms
 
 def compare_fintemp_phases(args, save_outputs=True):
     H_scaled = args.H
@@ -265,6 +287,7 @@ def compare_fintemp_phases(args, save_outputs=True):
     print(f"--- Finite-Temp Phase Evaluation H={H_scaled}, As={A_scaled}, T={T_scaled} ---")
     print(f"JAX Backend: {jax.default_backend()}")
     results = {}
+    results_terms = {}
     states = {}
     
     phases = [
@@ -280,8 +303,9 @@ def compare_fintemp_phases(args, save_outputs=True):
         if phase_name == "FM":
             print(f"\nEvaluating {phase_name}...")
             spins, ax, ay = init_fn(L_ansatz)
-            final_spins, f_ax, f_ay, avg_energy = equilibrate_phase(spins, L_super, ax, ay, H_scaled, A_scaled, T_scaled, phase_name, args)
+            final_spins, f_ax, f_ay, avg_energy, avg_terms = equilibrate_phase(spins, L_super, ax, ay, H_scaled, A_scaled, T_scaled, phase_name, args)
             results[phase_name] = avg_energy
+            results_terms[phase_name] = avg_terms
             states[phase_name] = (final_spins, f_ax, f_ay)
         else:
             print(f"\nRelaxing {phase_name} Phase at T=0 to optimize boundaries...")
@@ -299,8 +323,9 @@ def compare_fintemp_phases(args, save_outputs=True):
                 continue
                 
             print(f"Beginning Finite-Temperature SDE equilibration...")
-            final_spins, f_ax, f_ay, avg_energy = equilibrate_phase(spins, L_super, ax, ay, H_scaled, A_scaled, T_scaled, phase_name, args)
+            final_spins, f_ax, f_ay, avg_energy, avg_terms = equilibrate_phase(spins, L_super, ax, ay, H_scaled, A_scaled, T_scaled, phase_name, args)
             results[phase_name] = avg_energy
+            results_terms[phase_name] = avg_terms
             states[phase_name] = (final_spins, f_ax, f_ay)
         
     # Analyze the winner
@@ -316,7 +341,7 @@ def compare_fintemp_phases(args, save_outputs=True):
         np.savez(out_file, spins=best_spins, ax=best_ax, ay=best_ay)
         print(f"Saved finite-temperature ground state to '{out_file}'")
     
-    return winner, results
+    return winner, results, results_terms
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Finite-Temperature SDE LLG Phase Evaluator")
