@@ -8,7 +8,7 @@ class Args:
     def __init__(self, T):
         self.L = 32           # Base unit cell size
         self.L_super = 64   # Supercell size for thermodynamics
-        self.H = 1.5
+        self.H = 1.2
         self.A = 1
         self.T = T
         self.dt = 0.005
@@ -21,7 +21,7 @@ class Args:
 def plot_energy_scaling():
     print("Starting Setup: Energy vs Temperature Sweep...")
     # Temperatures from almost 0 to 0.8
-    temperatures = np.linspace(100, 100, 1) 
+    temperatures = np.linspace(0.001, 1, 10) 
     
     phase_names = ["SkX", "SC", "SP", "FM"]
     energies_all = {p: [] for p in phase_names}

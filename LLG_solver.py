@@ -405,54 +405,71 @@ def analyze_state(spins, ax, ay, phase_name="Unknown", plot_fft=False):
     geometry = "Uniform (FM)"
     
     if not is_uniform:
+        # --- Angular Fourier Analysis for Symmetry ---
+        I_x, I_y = np.indices(power.shape)
+        
+        # Convert raw indices to true physical k-space coordinates
+        # I_x corresponds to the x-axis (size L_x), I_y corresponds to the y-axis (size L_y)
+        k_x_real = (I_x - (L_x // 2)) * (2 * np.pi / (L_x * ax))
+        k_y_real = (I_y - (L_y // 2)) * (2 * np.pi / (L_y * ay))
+        
+        r_k = np.sqrt(k_x_real**2 + k_y_real**2)
+        
+        # 1. Isolate the fundamental Bragg peak radius
+        power_no_dc = power.copy()
+        power_no_dc[r_k < 1e-5] = 0.0
+        
+        if np.max(power_no_dc) > 0:
+            max_idx = np.unravel_index(np.argmax(power_no_dc), power.shape)
+            r_fundamental = r_k[max_idx]
+            
+            # 2. Analyze ONLY the fundamental k-space ring (Radial Bandpass)
+            # This filters out higher spatial harmonics (e.g., sharp domain walls)
+            # which destructively interfere in the angular symmetry integral.
+            ring_mask = (r_k > r_fundamental * 0.8) & (r_k < r_fundamental * 1.2)
+            
+            # 3. Intensity Threshold
+            # Exclude the continuous 1/k streaks from domain walls to analyze ONLY the discrete Bragg peaks.
+            peak_mask = power_no_dc > (np.max(power_no_dc) * 0.25)
+            active_mask = ring_mask & peak_mask
+        else:
+            active_mask = r_k > 1e-5
+            
+        # Calculate true physical angles
+        angles = np.arctan2(k_y_real[active_mask], k_x_real[active_mask])
+        weights = power[active_mask]
+        
+        c0 = np.sum(weights)
+        if c0 > 0:
+            c2 = np.abs(np.sum(weights * np.exp(-1j * 2 * angles))) / c0
+            c4 = np.abs(np.sum(weights * np.exp(-1j * 4 * angles))) / c0
+            c6 = np.abs(np.sum(weights * np.exp(-1j * 6 * angles))) / c0
+        else:
+            c2, c4, c6 = 0, 0, 0
+            
         import scipy.ndimage
-        # Set max_power threshold really low to capture higher harmonics
         mask = power > (max_power * 0.4)
-        # Contiguous cluster linking. Use 4-connectivity (2, 1) to prevent 
-        # distinct diagonal Bragg peaks from merging together on tight grid scales.
         s = scipy.ndimage.generate_binary_structure(2, 1)
         labels, num_peaks = scipy.ndimage.label(mask, structure=s)
         
-        # Determine if peaks are collinear (1D) or spread out (2D)
+        is_collinear = False
         if num_peaks > 0:
             peak_centers = scipy.ndimage.center_of_mass(mask, labels, np.arange(1, num_peaks + 1))
-            # peak_centers is a list of (y, x) tuples
             dy = np.array([p[0] for p in peak_centers]) - (L_x // 2)
             dx = np.array([p[1] for p in peak_centers]) - (L_y // 2)
-            
-            # Calculate angles, double them (to ignore pi phase shifts), and find phase coherence R
-            angles = np.arctan2(dy, dx)
-            v_x = np.cos(2 * angles)
-            v_y = np.sin(2 * angles)
-            R = np.sqrt(np.mean(v_x)**2 + np.mean(v_y)**2)
-            
-            # If num_peaks is 1, it might be a contiguous ring around the center (common for tight square lattices)
+            angles_peaks = np.arctan2(dy, dx)
+            R = np.sqrt(np.mean(np.cos(2 * angles_peaks))**2 + np.mean(np.sin(2 * angles_peaks))**2)
             if num_peaks == 1:
-                coords = np.argwhere(mask)
-                height = np.max(coords[:, 0]) - np.min(coords[:, 0])
-                width = np.max(coords[:, 1]) - np.min(coords[:, 1])
-                # Distinguish a 1D line from a 2D ring based on bounding box aspect ratio
-                is_collinear = (height < 2) or (width < 2) or (max(height, width) / max(min(height, width), 1) > 2.0)
+                is_collinear = True
             else:
                 is_collinear = R > 0.9
+
+        if is_collinear and (num_peaks % 2 == 0 or num_peaks == 1):
+            geometry = "1D Spiral"
+        elif c6 > c4:
+            geometry = "2D Hexagonal"
         else:
-            is_collinear = False
-            
-        # Decouple topology and geometry to handle phases that defect into Skyrmionic topologies (like SC)
-        if num_peaks == 0:
-            geometry = "Uniform (FM)"
-        elif is_collinear:
-            if num_peaks % 2 == 0 or num_peaks == 1:
-                geometry = "1D Spiral"
-            else:
-                geometry = "Distorted Lattice"
-        else:
-            if num_peaks % 6 == 0:
-                geometry = "2D Hexagonal"
-            elif num_peaks % 4 == 0 or num_peaks in [1, 8, 9, 12]:
-                geometry = "2D Square"
-            else:
-                geometry = "Distorted Lattice"
+            geometry = "2D Square"
                 
     # 3. Topology Classification
     topology = "Skyrmionic" if (not is_uniform and abs(Q) > 0.5) else "Trivial"
@@ -471,7 +488,7 @@ def analyze_state(spins, ax, ay, phase_name="Unknown", plot_fft=False):
             
     if plot_fft:
         import matplotlib.pyplot as plt
-        fig, axs = plt.subplots(1, 2, figsize=(10, 5))
+        fig, axs = plt.subplots(1, 3, figsize=(15, 5))
         
         L_x, L_y = n_z.shape
         extent_real = [-0.5 * L_x * ax, 0.5 * L_x * ax, -0.5 * L_y * ay, 0.5 * L_y * ay]
@@ -484,6 +501,8 @@ def analyze_state(spins, ax, ay, phase_name="Unknown", plot_fft=False):
         if is_uniform:
             axs[1].text(0.5, 0.5, "Uniform State\n(No Peaks)", ha='center', va='center')
             axs[1].axis('off')
+            axs[2].text(0.5, 0.5, "Uniform State\n(No Symmetry)", ha='center', va='center')
+            axs[2].axis('off')
         else:
             # Calculate physical k-space bounds
             k_max_x = np.pi / ax
@@ -495,6 +514,25 @@ def analyze_state(spins, ax, ay, phase_name="Unknown", plot_fft=False):
             axs[1].set_xlabel(r"$k_x$")
             axs[1].set_ylabel(r"$k_y$")
             axs[1].contour(mask.T, levels=[0.5], colors='cyan', linewidths=2, extent=extent_k)
+            
+            # 3rd Subplot: Angular Power Spectrum
+            angles_deg = np.degrees(np.mod(angles, 2 * np.pi))
+            hist, bin_edges = np.histogram(angles_deg, bins=180, range=(0, 360), weights=weights)
+            bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2.0
+            
+            axs[2].plot(bin_centers, hist, color='purple', linewidth=2)
+            axs[2].fill_between(bin_centers, hist, color='purple', alpha=0.3)
+            axs[2].set_title(f"Angular Power Spectrum\nClassified: {geometry}")
+            axs[2].set_xlim(0, 360)
+            axs[2].set_xticks([0, 90, 180, 270, 360])
+            axs[2].set_xlabel("Angle (Degrees)")
+            axs[2].set_ylabel("Integrated Power")
+            
+            # Label box for Symmetry Strengths
+            textstr = f"$C_2$ (Spiral): {c2:.3f}\n$C_4$ (Square): {c4:.3f}\n$C_6$ (Hex): {c6:.3f}"
+            props = dict(boxstyle='round', facecolor='white', alpha=0.8, edgecolor='gray')
+            axs[2].text(0.05, 0.95, textstr, transform=axs[2].transAxes, fontsize=10,
+                        verticalalignment='top', bbox=props)
             
         plt.tight_layout()
         os.makedirs("output/LLG/Graphs", exist_ok=True)
@@ -509,7 +547,10 @@ def analyze_state(spins, ax, ay, phase_name="Unknown", plot_fft=False):
         "topology": topology, 
         "peaks": num_peaks, 
         "is_uniform": is_uniform,
-        "classified_state": classified_state
+        "classified_state": classified_state,
+        "c2": c2 if not is_uniform else 0.0,
+        "c4": c4 if not is_uniform else 0.0,
+        "c6": c6 if not is_uniform else 0.0
     }
 
 def relax_phase(spins, L, H_scaled, A_scaled, phase_name, ax_in=1.0, ay_in=1.0, max_steps=50000, tol=1e-7, live_plot=False, live_mode="quiver", max_dt=0.05, cfl_factor=0.25, visualize_scaling=False):
@@ -559,7 +600,7 @@ def relax_phase(spins, L, H_scaled, A_scaled, phase_name, ax_in=1.0, ay_in=1.0, 
         fig.tight_layout()
         plt.show()
     
-    chunk = 10 if live_plot else max_steps
+    chunk = 100 if live_plot else max_steps
     
     while steps_done < max_steps:
         # Numba executes cleanly in small chunks so we can visualize intermediate states
@@ -628,7 +669,7 @@ def get_FM_energy(H_scaled, A_scaled):
             
     return min(e_aligned, e_anti_aligned, e_tilted)
 
-def compare_phases(H_scaled=0.08, A_scaled=0.5, L=64, npy_file=None, plot_ansatz=False, live_plot=False, live_mode="quiver", max_dt=0.05, cfl_factor=0.25, visualize_scaling=False, plot_groundstate=False, save_outputs=True, plot_fft=False):
+def compare_phases(H_scaled=0.08, A_scaled=0.5, L=64, npy_file=None, plot_ansatz=False, live_plot=False, live_mode="quiver", max_dt=0.05, cfl_factor=0.25, visualize_scaling=False, plot_groundstate=False, save_outputs=True, plot_fft=False, save_all=False):
     """
     Main Execution: Tests SkX, SP, and FM to find the true numerical ground state.
     """
@@ -709,6 +750,13 @@ def compare_phases(H_scaled=0.08, A_scaled=0.5, L=64, npy_file=None, plot_ansatz
     ]
     if npy_file and os.path.exists(npy_file):
         candidates.append(("Custom", spins_cust, final_ax_cust, final_ay_cust, f_cust, stats_cust))
+        
+    if save_all:
+        os.makedirs("output/LLG/Relaxed", exist_ok=True)
+        for ansatz_name, spins_k, ax_k, ay_k, f_k, stats_k in candidates:
+            out_path = f"output/LLG/Relaxed/relaxed_{ansatz_name}_L{L}_A{A_scaled:.2f}_H{H_scaled:.2f}.npz"
+            np.savez(out_path, spins=spins_k, ax=ax_k, ay=ay_k, energy=f_k, Q=stats_k['Q'], classified=stats_k['classified_state'])
+            print(f"Saved relaxed {ansatz_name} state to '{out_path}'")
         
     print("\n--- Validation & Classification ---")
     for ansatz_name, spins_k, ax_k, ay_k, f_k, stats_k in candidates:
@@ -793,8 +841,9 @@ if __name__ == "__main__":
     parser.add_argument("--plot-fft", action="store_true", help="Save Bragg peak FFT graphs of the relaxed phases to output directory")
     parser.add_argument("--max-dt", type=float, default=0.05, help="Maximum integration timestep")
     parser.add_argument("--cfl", type=float, default=0.25, help="CFL stability factor for dynamic timestep")
+    parser.add_argument("--save-all", action="store_true", help="Save all relaxed end configurations, not just the ground state")
     
     args = parser.parse_args()
     
-    compare_phases(H_scaled=args.H, A_scaled=args.A, L=args.L, npy_file=args.npy, plot_ansatz=args.plot_ansatz, live_plot=args.live_plot, live_mode=args.live_mode, max_dt=args.max_dt, cfl_factor=args.cfl, visualize_scaling=args.vis_scale, plot_groundstate=args.plot_groundstate, plot_fft=args.plot_fft)
+    compare_phases(H_scaled=args.H, A_scaled=args.A, L=args.L, npy_file=args.npy, plot_ansatz=args.plot_ansatz, live_plot=args.live_plot, live_mode=args.live_mode, max_dt=args.max_dt, cfl_factor=args.cfl, visualize_scaling=args.vis_scale, plot_groundstate=args.plot_groundstate, plot_fft=args.plot_fft, save_all=args.save_all)
 
