@@ -1,12 +1,14 @@
 import numpy as np
 import jax
 import jax.numpy as jnp
+from jax import config
+config.update("jax_enable_x64", True)
 import diffrax
 import equinox as eqx
 import lineax as lx
 import argparse
 import os
-from LLG_solver import init_SkX, init_SC, init_SP, relax_phase, get_FM_energy, analyze_state
+from LLG_solver import init_SkX, init_SC, init_SP, relax_phase, get_FM_energy, analyze_state, validate_result
 # ---------------------------------------------------------
 # SDE LLG using JAX + Diffrax
 # ---------------------------------------------------------
@@ -64,11 +66,13 @@ def get_energy_density(y, ax, ay, H_scaled, A_scaled):
     f_a = jnp.mean(E_a)
     f_tot = f_ex + f_dmi + f_z + f_a
     
-    # Pure dimensionless per-bond energies to decouple visualization from lattice density
-    norm_ex = jnp.mean(E_ex_x + E_ex_y)
-    norm_dmi = jnp.mean(E_dmi_x + E_dmi_y)
+    # Pure dimensionless per-bond energies
+    norm_ex_x = jnp.mean(E_ex_x)
+    norm_ex_y = jnp.mean(E_ex_y)
+    norm_dmi_x = jnp.mean(E_dmi_x)
+    norm_dmi_y = jnp.mean(E_dmi_y)
     
-    return f_tot, f_ex, f_dmi, f_z, f_a, norm_ex, norm_dmi, f_z, f_a
+    return f_tot, f_ex, f_dmi, f_z, f_a, norm_ex_x, norm_ex_y, norm_dmi_x, norm_dmi_y, f_z, f_a
 
 def drift_fn(t, y, args):
     """Deterministic LLG Step: dn/dt = H_eff - (n . H_eff)n"""
@@ -95,9 +99,9 @@ def diffusion_fn(t, y, args):
     return lx.FunctionLinearOperator(custom_mv, input_structure=jax.eval_shape(lambda: y))
 
 @eqx.filter_jit
-def simulate_all_blocks(t0, y0, args, key, sigma, dt, num_steps, block_steps):
-    """Run full stochastic Heun integration and save at block intervals."""
-    t1 = t0 + num_steps * dt
+def simulate_single_block(t0, y0, args, key, sigma, dt, block_steps):
+    """Run full stochastic Heun integration for a single block interval."""
+    t1 = t0 + block_steps * dt
     # VirtualBrownianTree generates the stochastic paths deterministically seeded by 'key'
     bm = diffrax.VirtualBrownianTree(t0=t0, t1=t1, tol=dt/2, shape=y0.shape, key=key)
     
@@ -109,14 +113,6 @@ def simulate_all_blocks(t0, y0, args, key, sigma, dt, num_steps, block_steps):
     # EulerHeun handles Stratonovich SDEs correctly
     solver = diffrax.EulerHeun()
     
-    num_saves = num_steps // block_steps
-    save_ts_list = [(i + 1) * block_steps * dt for i in range(num_saves)]
-    if num_steps % block_steps != 0:
-        save_ts_list.append(num_steps * dt)
-    save_ts = t0 + jnp.array(save_ts_list)
-    
-    saveat = diffrax.SaveAt(ts=save_ts)
-    
     sol = diffrax.diffeqsolve(
         terms,
         solver,
@@ -126,17 +122,16 @@ def simulate_all_blocks(t0, y0, args, key, sigma, dt, num_steps, block_steps):
         y0=y0,
         args=args,
         stepsize_controller=diffrax.ConstantStepSize(),
-        saveat=saveat,
-        max_steps=num_steps+10 # Allow buffer
+        max_steps=block_steps+10 # Allow buffer
     )
     
-    y_snapshots = sol.ys 
+    y_final = sol.ys[-1]
     
     # Strict geometrical projection to |n|=1 to kill any numerical random walk drift
-    norm = jnp.linalg.norm(y_snapshots, axis=-1, keepdims=True)
-    y_norm_snapshots = y_snapshots / jnp.where(norm > 1e-12, norm, 1.0)
+    norm = jnp.linalg.norm(y_final, axis=-1, keepdims=True)
+    y_norm_final = y_final / jnp.where(norm > 1e-12, norm, 1.0)
     
-    return save_ts, y_norm_snapshots
+    return t1, y_norm_final
 
 # ---------------------------------------------------------
 # Utilities
@@ -187,6 +182,8 @@ def init_FM(L, H_scaled, A_scaled):
 def equilibrate_phase(spins_np, L_run, ax, ay, H_scaled, A_scaled, T_scaled, phase_name, args):
     """Run the SDE thermalization block and return the thermal average energy."""
     L_x, L_y, _ = spins_np.shape
+    gamma = ay / ax
+
     
     if L_run is not None and L_run > L_x:
         reps = L_run // L_x
@@ -195,9 +192,9 @@ def equilibrate_phase(spins_np, L_run, ax, ay, H_scaled, A_scaled, T_scaled, pha
     
     # Thermodynamic proper SDE noise scaling for continuous finite-volume cells
     sigma = np.sqrt(2.0 * T_scaled / (ax * ay))
-    y0 = jnp.array(spins_np, dtype=jnp.float32)
-    t0 = jnp.array(0.0)
-    sim_args = (jnp.float32(ax), jnp.float32(ay), jnp.float32(H_scaled), jnp.float32(A_scaled), jnp.float32(sigma))
+    y0 = jnp.array(spins_np, dtype=jnp.float64)
+    t0 = jnp.array(0.0, dtype=jnp.float64)
+    sim_args = (jnp.float64(ax), jnp.float64(ay), jnp.float64(H_scaled), jnp.float64(A_scaled), jnp.float64(sigma))
     
     live_plot = not args.no_plot
     live_mode = args.live_mode
@@ -236,25 +233,50 @@ def equilibrate_phase(spins_np, L_run, ax, ay, H_scaled, A_scaled, T_scaled, pha
     energy_terms_history = {'ex': [], 'dmi': [], 'z': [], 'a': []}
     
     key, subkey = jax.random.split(key)
-    print(f"[{phase_name}] Simulating {args.steps} SDE steps (compiled loop)...")
-    ts, y_snapshots = simulate_all_blocks(t0, y0, sim_args, subkey, sigma, args.dt, args.steps, args.block)
+    print(f"[{phase_name}] Simulating {args.steps} SDE steps (block iterative)...")
     
-    # Evaluate thermodynamic energy for all snapshots
-    vals_batched = jax.vmap(get_energy_density, in_axes=(0, None, None, None, None))(y_snapshots, ax, ay, H_scaled, A_scaled)
-    f_val_arr, f_ex_arr, f_dmi_arr, f_z_arr, f_a_arr, norm_ex_arr, norm_dmi_arr, norm_z_arr, norm_a_arr = [np.array(x) for x in vals_batched]
-    
-    num_saves = len(ts)
-    for i in range(num_saves):
-        if i < args.steps // args.block:
-            steps_done = (i + 1) * args.block
-        else:
-            steps_done = args.steps
-            
-        f_val = float(f_val_arr[i])
-        norm_ex = float(norm_ex_arr[i])
-        norm_dmi = float(norm_dmi_arr[i])
-        norm_z = float(norm_z_arr[i])
-        norm_a = float(norm_a_arr[i])
+    num_blocks = args.steps // args.block
+    for i in range(num_blocks):
+        key, subkey = jax.random.split(key)
+        t_next, y_next = simulate_single_block(t0, y0, sim_args, subkey, sigma, args.dt, args.block)
+        t0 = t_next
+        y0 = y_next
+        
+        # Evaluate thermodynamic energy for the current snapshot
+        vals = get_energy_density(y0, jnp.float64(ax), jnp.float64(ay), jnp.float64(H_scaled), jnp.float64(A_scaled))
+        f_val, f_ex, f_dmi, f_z, f_a, norm_ex_x, norm_ex_y, norm_dmi_x, norm_dmi_y, norm_z, norm_a = [float(x) for x in vals]
+        
+        # Adiabatic Barostat Update
+        if getattr(args, 'dynamic_scaling', False):
+            alpha_scale = 0.01 if T_scaled == 0 else 0.05
+            noise_threshold = 1e-12 if T_scaled == 0 else 1e-4
+            if getattr(args, 'iso_scale', False):
+                dmi_term = abs(norm_dmi_x + norm_dmi_y / gamma)
+                if dmi_term > noise_threshold and (norm_ex_x + norm_ex_y) > noise_threshold:
+                    target_ax = 2.0 * (norm_ex_x + norm_ex_y / gamma**2) / dmi_term
+                    target_ay = target_ax * gamma
+                    ax = (1.0 - alpha_scale) * ax + alpha_scale * target_ax
+                    ay = (1.0 - alpha_scale) * ay + alpha_scale * target_ay
+            else:
+                if abs(norm_dmi_x) > noise_threshold and abs(norm_ex_x) > noise_threshold:
+                    target_ax = 2.0 * norm_ex_x / abs(norm_dmi_x)
+                    ax = (1.0 - alpha_scale) * ax + alpha_scale * target_ax
+                if abs(norm_dmi_y) > noise_threshold and abs(norm_ex_y) > noise_threshold:
+                    target_ay = 2.0 * norm_ex_y / abs(norm_dmi_y)
+                    ay = (1.0 - alpha_scale) * ay + alpha_scale * target_ay
+                
+                # Enforce isotropy for 1D states (prevent severe aspect ratio warping)
+                if abs(norm_dmi_y) <= noise_threshold and abs(norm_ex_y) <= noise_threshold and abs(norm_dmi_x) > noise_threshold:
+                    ay = ax
+                if abs(norm_dmi_x) <= noise_threshold and abs(norm_ex_x) <= noise_threshold and abs(norm_dmi_y) > noise_threshold:
+                    ax = ay
+                
+            sigma = np.sqrt(2.0 * T_scaled / (ax * ay))
+            sim_args = (jnp.float64(ax), jnp.float64(ay), jnp.float64(H_scaled), jnp.float64(A_scaled), jnp.float64(sigma))
+        
+        steps_done = (i + 1) * args.block
+        norm_ex = norm_ex_x + norm_ex_y
+        norm_dmi = norm_dmi_x + norm_dmi_y
         
         # Wait until 30% of simulation has passed to clear initial transients
         if steps_done > 0.3 * args.steps:
@@ -264,24 +286,37 @@ def equilibrate_phase(spins_np, L_run, ax, ay, H_scaled, A_scaled, T_scaled, pha
             energy_terms_history['z'].append(norm_z)
             energy_terms_history['a'].append(norm_a)
             
-        if live_plot:
-            current_spins_np = np.asarray(y_snapshots[i])
+        if live_plot and (args.block >= 10 or (steps_done // 10 > (steps_done - args.block) // 10)):
+            current_spins_np = np.asarray(y0)
             if live_mode == "quiver":
                 tiled_spins = np.tile(current_spins_np, (tiles_x, tiles_y, 1))
                 U = tiled_spins[:, :, 0].T
                 V = tiled_spins[:, :, 1].T
                 Sz = tiled_spins[:, :, 2].T
                 q.set_UVC(U, V, Sz)
+                
+                # Update positions for physical scaling
+                pts = np.column_stack((X_base.flatten() * ax, Y_base.flatten() * ay))
+                q.set_offsets(pts)
+                
+                for (rect_i, rect_j, rect) in rects:
+                    rect.set_xy(((-0.5 + rect_i*L_x)*ax, (-0.5 + rect_j*L_y)*ay))
+                    rect.set_width(L_x * ax)
+                    rect.set_height(L_y * ay)
+                    
+                ax_plot.set_xlim(-ax, L_x_tiled * ax)
+                ax_plot.set_ylim(-ay, L_y_tiled * ay)
             else:
                 im.set_data(current_spins_np[:, :, 2].T)
-            ax_plot.set_title(f"[{phase_name}] T={T_scaled} | Steps: {steps_done}/{args.steps} | f_inst: {f_val:.4f}")
+                im.set_extent([0, L_x*ax, 0, L_y*ay])
+                ax_plot.set_xlim(0, L_x*ax)
+                ax_plot.set_ylim(0, L_y*ay)
+                
+            ax_plot.set_title(f"[{phase_name}] T={T_scaled} | Steps: {steps_done}/{args.steps} | f_inst: {f_val:.4f} | ax: {ax:.3f}")
             plt.pause(0.01)
         else:
-            if steps_done % (args.block * 10) == 0:
-                print(f"[{phase_name}] Progress: {steps_done}/{args.steps} steps... f_inst={f_val:.4f}")
-                
-    if num_saves > 0:
-        y0 = jnp.array(y_snapshots[-1])
+            if steps_done % (args.block * 50) == 0:
+                print(f"[{phase_name}] Progress: {steps_done}/{args.steps} steps... f_inst={f_val:.4f} (ax={ax:.3f}, ay={ay:.3f})")
         
     if live_plot:
         plt.ioff()
@@ -341,13 +376,12 @@ def compare_fintemp_phases(args, save_outputs=True):
         else:
             print(f"\nRelaxing {phase_name} Phase at T=0 to optimize boundaries...")
             spins_init, ax_init, ay_init = init_fn(L_ansatz)
-            spins, f_tot_0K, ax, ay = relax_phase(spins_init, L_ansatz, H_scaled, A_scaled, phase_name, ax_in=ax_init, ay_in=ay_init, max_steps=50000, tol=1e-7, live_plot=False)
-            print(f"-> T=0 Relaxation complete. Optimized bounds: ax={ax:.4f}, ay={ay:.4f} (Deterministic Energy: {f_tot_0K:.5f})")
-            # Additional structural check: if variance across lattice approaches zero, it is physically FM
-            # If the boundary dimensions geometrically diverge (e.g. ax > 5.0 meaning the period stretches 
-            # longer than the physical simulation scope), the structure is melting into a uniform phase.
-            spin_variance = np.var(spins, axis=(0, 1)).sum()
-            diverged = ax > 50.0 or ay > 50.0 or (ax / ay) > 100.0 or (ay / ax) > 100.0
+            spins, f_tot_0K, ax, ay = relax_phase(spins_init, L_ansatz, H_scaled, A_scaled, phase_name, ax_in=ax_init, ay_in=ay_init, max_steps=100000, tol=1e-12, live_plot=False, iso_scale=getattr(args, 'iso_scale', False))
+            
+            # Use raw nz variance — consistent with analyze_state's is_uniform definition.
+            # Aspect ratio threshold matches LLG_solver.py (> 3).
+            spin_variance = np.var(spins[:, :, 2])
+            diverged = ax > 50.0 or ay > 50.0 or (ax / ay) > 3.0 or (ay / ax) > 3.0
             
             if abs(f_tot_0K - f_fm_analytical) < 1e-4 or spin_variance < 1e-4 or diverged:
                 print(f"[{phase_name}] unraveled directly into a uniform state (Periodicity Diverged). Skipping redundant finite-T SDE mapping!")
@@ -359,6 +393,13 @@ def compare_fintemp_phases(args, save_outputs=True):
             stats = analyze_state(final_spins, f_ax, f_ay, phase_name=f"{phase_name}_fintemp", plot_fft=getattr(args, 'plot_fft', False))
             actual_class = stats["classified_state"]
             print(f"   -> Q={stats['Q']:.2f} | Geo: {stats['geometry']} ({stats['peaks']} Peaks) -> Detected as: {actual_class}")
+            
+            # Post-SDE validation: same gate as compare_phases uses after T=0 relaxation.
+            # Catches grid drift or FM collapse that occurred *during* thermalization.
+            discard_reason = validate_result(phase_name, avg_energy, f_ax, f_ay, f_fm_analytical, stats)
+            if discard_reason:
+                print(f"[{phase_name} Ansatz] Post-SDE: {discard_reason}")
+                continue
             
             if actual_class != phase_name:
                 print(f"[{phase_name} Ansatz] defected and converged into -> {actual_class}! (Thermal Energy: {avg_energy:.5f})")
@@ -382,6 +423,21 @@ def compare_fintemp_phases(args, save_outputs=True):
         out_file = os.path.join(out_dir, f"fintemp_groundstate_T{T_scaled}_H{H_scaled}.npz")
         np.savez(out_file, spins=best_spins, ax=best_ax, ay=best_ay)
         print(f"Saved finite-temperature ground state to '{out_file}'")
+
+    if getattr(args, 'save_all', False):
+        os.makedirs("output/Fintemp", exist_ok=True)
+        for phase, (s_spins, s_ax, s_ay) in states.items():
+            L_x = s_spins.shape[0]
+            # Extract a single unit cell if the state was tiled
+            if L_x > L_ansatz and L_x % L_ansatz == 0:
+                s_spins_cell = s_spins[:L_ansatz, :L_ansatz, :]
+                out_file_cell = os.path.join("output/Fintemp", f"fintemp_relaxed_{phase}_cell_T{T_scaled}_H{H_scaled}.npz")
+                np.savez(out_file_cell, spins=s_spins_cell, ax=s_ax, ay=s_ay)
+                print(f"Saved finite-temperature {phase} state (single cell) to '{out_file_cell}'")
+                
+            out_file_super = os.path.join("output/Fintemp", f"fintemp_relaxed_{phase}_super_T{T_scaled}_H{H_scaled}.npz")
+            np.savez(out_file_super, spins=s_spins, ax=s_ax, ay=s_ay)
+            print(f"Saved finite-temperature {phase} state (full supercell) to '{out_file_super}'")
     
     return winner, results, results_terms
 
@@ -399,6 +455,9 @@ if __name__ == "__main__":
     parser.add_argument("--no-plot", action="store_true", help="Disable live plotting")
     parser.add_argument("--live-mode", type=str, choices=["quiver", "heatmap"], default="quiver", help="Display mode for live plotting")
     parser.add_argument("--plot-fft", action="store_true", help="Save Bragg peak FFT graphs of the relaxed phases to output directory")
+    parser.add_argument("--save-all", action="store_true", help="Save all relaxed phases (extracts single cell if tiled)")
+    parser.add_argument("--dynamic-scaling", action="store_true", help="Enable adiabatic barostat to dynamically rescale ax and ay during equilibration")
+    parser.add_argument("--iso-scale", action="store_true", help="Enforce isotropic scaling (preserve initial aspect ratio)")
     
     args = parser.parse_args()
     compare_fintemp_phases(args)

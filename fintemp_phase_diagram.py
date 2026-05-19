@@ -16,7 +16,7 @@ from phase_diagram import plot_phase_diagram, plot_energy_difference, HiddenPrin
 
 class FintempArgs:
     """Mock namespace to pass parameters smoothly into compare_fintemp_phases"""
-    def __init__(self, L=32, L_super=None, H=0.0, A=0.0, T=0.1, dt=0.005, steps=1000, block=100, seed=42, no_plot=True, live_mode="quiver"):
+    def __init__(self, L=32, L_super=None, H=0.0, A=0.0, T=0.1, dt=0.005, steps=1000, block=100, seed=42, no_plot=True, live_mode="quiver", dynamic_scaling=False, plot_fft=False, save_all=False):
         self.L = L
         self.L_super = L_super
         self.H = H
@@ -28,27 +28,30 @@ class FintempArgs:
         self.seed = seed
         self.no_plot = no_plot
         self.live_mode = live_mode
+        self.dynamic_scaling = dynamic_scaling
+        self.plot_fft = plot_fft
+        self.save_all = save_all
 
 def _evaluate_fintemp_point(task):
     """
     Worker function for one fintemp phase-diagram point.
     Kept at module scope for Windows multiprocessing compatibility.
     """
-    i, j, a, h, T_sel, L, steps, block = task
+    i, j, a, h, T_sel, L, L_super, steps, block, dynamic_scaling = task
     phase_map = {"SkX": 0, "SC": 1, "SP": 2, "FM": 3}
     
-    sim_args = FintempArgs(L=L, T=T_sel, steps=steps, block=block, no_plot=True)
+    sim_args = FintempArgs(L=L, L_super=L_super, T=T_sel, steps=steps, block=block, no_plot=True, dynamic_scaling=dynamic_scaling)
     sim_args.H = h
     sim_args.A = a
     
     try:
         with HiddenPrints():
-            winner, energies = compare_fintemp_phases(sim_args, save_outputs=False)
+            winner, energies, _ = compare_fintemp_phases(sim_args, save_outputs=False)
         return i, j, phase_map.get(winner, -1), energies, None
     except Exception as exc:
         return i, j, -1, {"SkX": np.nan, "SC": np.nan, "SP": np.nan, "FM": np.nan}, str(exc)
 
-def generate_fintemp_phase_diagram(T_sel=0.1, n_H=26, n_A=33, L=32, steps=1000, block=100, workers=None):
+def generate_fintemp_phase_diagram(T_sel=0.1, n_H=26, n_A=33, L=32, L_super=None, steps=1000, block=100, workers=None, dynamic_scaling=False):
     """
     Generates a finite-temperature phase diagram by sweeping H and A and integrating SDEs.
     """
@@ -77,12 +80,12 @@ def generate_fintemp_phase_diagram(T_sel=0.1, n_H=26, n_A=33, L=32, steps=1000, 
     start_time = time.time()
     
     # Create task list for all points
-    tasks = [(i, j, a, h, T_sel, L, steps, block) for i, a in enumerate(A_vals) for j, h in enumerate(H_vals)]
+    tasks = [(i, j, a, h, T_sel, L, L_super, steps, block, dynamic_scaling) for i, a in enumerate(A_vals) for j, h in enumerate(H_vals)]
     
     if workers == 1:
         # Sequential execution for debugging
         for idx, task in enumerate(tasks, start=1):
-            i, j, a, h, _, _, _, _ = task
+            i, j, a, h, _, _, _, _, _, _ = task
             sys.stdout.write(f"\rComputing Point {idx}/{n_H * n_A} | H = {h:.2f}, A = {a:.2f} ... ")
             sys.stdout.flush()
             
@@ -102,7 +105,7 @@ def generate_fintemp_phase_diagram(T_sel=0.1, n_H=26, n_A=33, L=32, steps=1000, 
             
             for future in as_completed(future_to_task):
                 completed += 1
-                _, _, a, h, _, _, _, _ = future_to_task[future]
+                _, _, a, h, _, _, _, _, _, _ = future_to_task[future]
                 sys.stdout.write(f"\rComputing Point {completed}/{n_H * n_A} | H = {h:.2f}, A = {a:.2f} ... ")
                 sys.stdout.flush()
                 
@@ -116,7 +119,7 @@ def generate_fintemp_phase_diagram(T_sel=0.1, n_H=26, n_A=33, L=32, steps=1000, 
                     if err is not None:
                         print(f"\nFailed to converge at H={h}, A={a}: {err}")
                 except Exception as exc:
-                    i, j, _, _, _, _, _, _ = future_to_task[future]
+                    i, j, _, _, _, _, _, _, _, _ = future_to_task[future]
                     phase_grid[i, j] = -1
                     print(f"\nWorker crashed at H={h}, A={a}: {exc}")
                 
@@ -154,13 +157,15 @@ def generate_fintemp_phase_diagram(T_sel=0.1, n_H=26, n_A=33, L=32, steps=1000, 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate Finite-Temperature Phase Diagram")
-    parser.add_argument("--T", type=float, default=0.1, help="Temperature base for SDE thermalization")
+    parser.add_argument("--T", type=float, default=0, help="Temperature base for SDE thermalization")
     parser.add_argument("--nH", type=int, default=26, help="Number of points along the H axis")
     parser.add_argument("--nA", type=int, default=33, help="Number of points along the A axis")
     parser.add_argument("--L", type=int, default=32, help="Lattice size")
-    parser.add_argument("--steps", type=int, default=1000, help="SDE thermal equilibration steps per point")
-    parser.add_argument("--block", type=int, default=100, help="SDE energy averaging block size")
+    parser.add_argument("--L_super", type=int, default=None, help="Supercell size (None = no tiling)")
+    parser.add_argument("--steps", type=int, default=5000, help="SDE thermal equilibration steps per point")
+    parser.add_argument("--block", type=int, default=1, help="SDE energy averaging block size")
     parser.add_argument("--workers", type=int, default=4, help="Number of parallel multiprocessing workers")
+    parser.add_argument("--dynamic-scaling", action="store_true", help="Enable adiabatic barostat during equilibration")
     
     args = parser.parse_args()
-    generate_fintemp_phase_diagram(T_sel=args.T, n_H=args.nH, n_A=args.nA, L=args.L, steps=args.steps, block=args.block, workers=args.workers)
+    generate_fintemp_phase_diagram(T_sel=args.T, n_H=args.nH, n_A=args.nA, L=args.L, L_super=args.L_super, steps=args.steps, block=args.block, workers=args.workers, dynamic_scaling=args.dynamic_scaling)

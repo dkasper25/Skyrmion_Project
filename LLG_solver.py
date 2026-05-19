@@ -147,7 +147,7 @@ def load_ansatz(filepath, L):
 # ---------------------------------------------------------
 
 @nb.njit
-def relax_phase_numba(spins, L, H_scaled, A_scaled, max_steps=50000, tol=1e-7, ax_in=1.0, ay_in=1.0, prev_f_in=0.0, max_dt=0.05, cfl_factor=0.25, global_step_start=0):
+def relax_phase_numba(spins, L, H_scaled, A_scaled, max_steps=50000, tol=1e-8, ax_in=1.0, ay_in=1.0, prev_f_in=0.0, max_dt=0.05, cfl_factor=0.25, global_step_start=0, iso_scale=False):
     """
     Perform the full overdamped LLG integration natively in Numba using Heun (RK2) method.
     This avoids Python overhead and memory allocations at every step, making it ~100x faster.
@@ -155,7 +155,10 @@ def relax_phase_numba(spins, L, H_scaled, A_scaled, max_steps=50000, tol=1e-7, a
     ax = ax_in
     ay = ay_in
     prev_f = prev_f_in
-    dt = max_dt 
+    dt = max_dt
+    # Track the last optimizer targets so Python can compare them to converged ax/ay
+    target_ax = ax_in
+    target_ay = ay_in
     
     # Pre-allocate buffers for ping-pong swapping and predictor state
     spins_current = spins.copy()
@@ -317,27 +320,36 @@ def relax_phase_numba(spins, L, H_scaled, A_scaled, max_steps=50000, tol=1e-7, a
 
         # Dynamic Scaling Strategy: Use a low-pass filter (EMA) to dampen vicious cycles
         alpha_scale = 0.01
-        if abs(E_dmi_x) > 1e-12 and abs(E_ex_x) > 1e-12:
-            # We strictly enforce the positive root of the energy minimization polynomial
-            target_ax = 2.0 * E_ex_x / abs(E_dmi_x)
-            ax = (1.0 - alpha_scale) * ax + alpha_scale * target_ax
-        if abs(E_dmi_y) > 1e-12 and abs(E_ex_y) > 1e-12:
-            target_ay = 2.0 * E_ex_y / abs(E_dmi_y)
-            ay = (1.0 - alpha_scale) * ay + alpha_scale * target_ay
-
-        # Enforce isotropy for 1D states to prevent extreme aspect ratios 
-        # which break the continuum Laplacian and ruin SDE condition numbers
-        if abs(E_dmi_y) <= 1e-10 and abs(E_ex_y) <= 1e-10 and abs(E_dmi_x) > 1e-10:
-            ay = ax
-        if abs(E_dmi_x) <= 1e-10 and abs(E_ex_x) <= 1e-10 and abs(E_dmi_y) > 1e-10:
-            ax = ay
+        if iso_scale:
+            gamma = ay_in / ax_in
+            dmi_term = abs(E_dmi_x + E_dmi_y / gamma)
+            if dmi_term > 1e-12 and (E_ex_x + E_ex_y) > 1e-12:
+                target_ax = 2.0 * (E_ex_x + E_ex_y / gamma**2) / dmi_term
+                target_ay = target_ax * gamma
+                ax = (1.0 - alpha_scale) * ax + alpha_scale * target_ax
+                ay = (1.0 - alpha_scale) * ay + alpha_scale * target_ay
+        else:
+            if abs(E_dmi_x) > 1e-12 and abs(E_ex_x) > 1e-12:
+                # We strictly enforce the positive root of the energy minimization polynomial
+                target_ax = 2.0 * E_ex_x / abs(E_dmi_x)
+                ax = (1.0 - alpha_scale) * ax + alpha_scale * target_ax
+            if abs(E_dmi_y) > 1e-12 and abs(E_ex_y) > 1e-12:
+                target_ay = 2.0 * E_ex_y / abs(E_dmi_y)
+                ay = (1.0 - alpha_scale) * ay + alpha_scale * target_ay
+    
+            # Enforce isotropy for 1D states to prevent extreme aspect ratios 
+            # which break the continuum Laplacian and ruin SDE condition numbers
+            if abs(E_dmi_y) <= 1e-10 and abs(E_ex_y) <= 1e-10 and abs(E_dmi_x) > 1e-10:
+                ay = ax
+            if abs(E_dmi_x) <= 1e-10 and abs(E_ex_x) <= 1e-10 and abs(E_dmi_y) > 1e-10:
+                ax = ay
             
         # Optional clamping
         if ax <= 0: ax = ax_in
         if ay <= 0: ay = ay_in
 
         # Check convergence
-        if (global_step_start + step) > 3000 and abs(f_tot - prev_f) < tol:
+        if (global_step_start + step) > 10000 and abs(f_tot - prev_f) < tol:
             # We must break here and transfer the output
             spins_current[:] = spins_next[:]
             break
@@ -349,7 +361,7 @@ def relax_phase_numba(spins, L, H_scaled, A_scaled, max_steps=50000, tol=1e-7, a
         spins_current = spins_next
         spins_next = temp
         
-    return spins_current, f_tot, ax, ay, step
+    return spins_current, f_tot, ax, ay, step, target_ax, target_ay
 
 # ---------------------------------------------------------
 # Part D & E: Execution Wrapper & Analysis
@@ -396,9 +408,9 @@ def analyze_state(spins, ax, ay, phase_name="Unknown", plot_fft=False):
     
     max_power = np.max(power)
     
-    # Use spatial variance of the smoothed spin field to reliably detect Uniform/FM states
-    # Structural phases (SkX, SC, SP) have macroscopic variance > 0.05. Thermal noise variance is < 0.01.
-    is_uniform = np.var(n[:, :, 2]) < 0.01
+    # Use raw spatial variance of the unsmoothed input spin field to detect Uniform/FM states.
+    # Consistent threshold with the fintemp pre-filter. Structural phases have variance >> 1e-4.
+    is_uniform = np.var(spins[:, :, 2]) < 1e-3
     
     num_peaks = 0
     mask = None
@@ -513,7 +525,7 @@ def analyze_state(spins, ax, ay, phase_name="Unknown", plot_fft=False):
             axs[1].set_title(f"Reciprocal Power Spectrum (Log)\n{num_peaks} Fundamental Peaks")
             axs[1].set_xlabel(r"$k_x$")
             axs[1].set_ylabel(r"$k_y$")
-            axs[1].contour(mask.T, levels=[0.5], colors='cyan', linewidths=2, extent=extent_k)
+            axs[1].contour(mask.T, levels=[0.5], colors='cyan', linewidths=1, extent=extent_k)
             
             # 3rd Subplot: Angular Power Spectrum
             angles_deg = np.degrees(np.mod(angles, 2 * np.pi))
@@ -553,11 +565,14 @@ def analyze_state(spins, ax, ay, phase_name="Unknown", plot_fft=False):
         "c6": c6 if not is_uniform else 0.0
     }
 
-def relax_phase(spins, L, H_scaled, A_scaled, phase_name, ax_in=1.0, ay_in=1.0, max_steps=50000, tol=1e-7, live_plot=False, live_mode="quiver", max_dt=0.05, cfl_factor=0.25, visualize_scaling=False):
+def relax_phase(spins, L, H_scaled, A_scaled, phase_name, ax_in=1.0, ay_in=1.0, max_steps=None, tol=1e-8, live_plot=False, live_mode="quiver", max_dt=0.05, cfl_factor=0.25, visualize_scaling=False, iso_scale=False):
     """
     Relax the given spin configuration using LLG and dynamic scaling.
     This is now a wrapper around the ultra-fast Numba integrator.
     """
+    if max_steps is None:
+        max_steps = int(50000 * (L / 32)**2)
+
     ax, ay = ax_in, ay_in
     prev_f = 0.0
     steps_done = 0
@@ -602,10 +617,11 @@ def relax_phase(spins, L, H_scaled, A_scaled, phase_name, ax_in=1.0, ay_in=1.0, 
     
     chunk = 100 if live_plot else max_steps
     
+    target_ax, target_ay = ax, ay
     while steps_done < max_steps:
         # Numba executes cleanly in small chunks so we can visualize intermediate states
-        spins_final, f_tot, ax, ay, steps_taken = relax_phase_numba(
-            spins, L, H_scaled, A_scaled, chunk, tol, ax, ay, prev_f, max_dt, cfl_factor, global_step_start=steps_done
+        spins_final, f_tot, ax, ay, steps_taken, target_ax, target_ay = relax_phase_numba(
+            spins, L, H_scaled, A_scaled, chunk, tol, ax, ay, prev_f, max_dt, cfl_factor, global_step_start=steps_done, iso_scale=iso_scale
         )
         
         # The true number of steps executed is steps_taken + 1 because the loop is 0-indexed and returns `step`
@@ -649,7 +665,7 @@ def relax_phase(spins, L, H_scaled, A_scaled, phase_name, ax_in=1.0, ay_in=1.0, 
         plt.ioff()
         plt.close(fig)
     
-    print(f"[{phase_name}] Relaxed in {steps_done} steps. Energy Density: {f_tot:.5f} (ax={ax:.3f}, ay={ay:.3f})")
+    print(f"[{phase_name}] Relaxed in {steps_done} steps. Energy Density: {f_tot:.5f} (ax={ax:.3f}, ay={ay:.3f}) | target: ax={target_ax:.3f}, ay={target_ay:.3f}")
     return spins, f_tot, ax, ay
 
 def get_FM_energy(H_scaled, A_scaled):
@@ -669,7 +685,27 @@ def get_FM_energy(H_scaled, A_scaled):
             
     return min(e_aligned, e_anti_aligned, e_tilted)
 
-def compare_phases(H_scaled=0.08, A_scaled=0.5, L=64, npy_file=None, plot_ansatz=False, live_plot=False, live_mode="quiver", max_dt=0.05, cfl_factor=0.25, visualize_scaling=False, plot_groundstate=False, save_outputs=True, plot_fft=False, save_all=False):
+def validate_result(ansatz_name, f, ax, ay, f_fm, stats):
+    """
+    Shared validation gate used by both LLG and fintemp comparison pipelines.
+    Returns a human-readable discard reason string, or None if the result is valid.
+    
+    Checks (in order):
+      1. Grid divergence  — scaling grid collapsed or has extreme aspect ratio
+      2. FM collapse      — energy matched analytical FM or spin field is uniform
+      3. Unknown phase    — analyze_state could not assign a definitive label
+    """
+    if ax > 50.0 or ay > 50.0 or (ax / ay) > 3.0 or (ay / ax) > 3.0:
+        return f"Diverged scaling grid (ax={ax:.1f}, ay={ay:.1f}). Discarded."
+    if abs(f - f_fm) < 1e-4 or stats["is_uniform"]:
+        return "Collapsed into FM state. Discarded (analytical FM energy used instead)."
+    if ansatz_name in ["SkX", "SC"] and stats["classified_state"] == "SP":
+        return "defected and converged into -> SP! Discarded."
+    if stats["classified_state"] == "Unknown Phase":
+        return f"Unverified phase (geometry={stats['geometry']}, Q={stats['Q']:.2f}). Discarded."
+    return None
+
+def compare_phases(H_scaled=0.08, A_scaled=0.5, L=64, npy_file=None, plot_ansatz=False, live_plot=False, live_mode="quiver", max_dt=0.05, cfl_factor=0.25, visualize_scaling=False, plot_groundstate=False, save_outputs=True, plot_fft=False, save_all=False, max_steps=None, iso_scale=False):
     """
     Main Execution: Tests SkX, SP, and FM to find the true numerical ground state.
     """
@@ -687,7 +723,7 @@ def compare_phases(H_scaled=0.08, A_scaled=0.5, L=64, npy_file=None, plot_ansatz
             print("Displaying SkX Ansatz...")
             plot_periodic_structure("output/LLG/Ansatze/ansatz_SkX.npz", tiles_x=2, tiles_y=2, display_mode="quiver", ax=ax_skx, ay=ay_skx)
         except: pass
-    spins_skx, f_skx, final_ax_skx, final_ay_skx = relax_phase(spins_skx, L, H_scaled, A_scaled, "SkX", ax_in=ax_skx, ay_in=ay_skx, live_plot=live_plot, live_mode=live_mode, max_dt=max_dt, cfl_factor=cfl_factor, visualize_scaling=visualize_scaling)
+    spins_skx, f_skx, final_ax_skx, final_ay_skx = relax_phase(spins_skx, L, H_scaled, A_scaled, "SkX", ax_in=ax_skx, ay_in=ay_skx, live_plot=live_plot, live_mode=live_mode, max_dt=max_dt, cfl_factor=cfl_factor, visualize_scaling=visualize_scaling, max_steps=max_steps, iso_scale=iso_scale)
     stats_skx = analyze_state(spins_skx, final_ax_skx, final_ay_skx, phase_name="SkX", plot_fft=plot_fft)
     print(f"   -> Q={stats_skx['Q']:.2f} | Geo: {stats_skx['geometry']} ({stats_skx['peaks']} Peaks) -> Detected as: {stats_skx['classified_state']}")
     
@@ -702,7 +738,7 @@ def compare_phases(H_scaled=0.08, A_scaled=0.5, L=64, npy_file=None, plot_ansatz
             print("Displaying SC Ansatz...")
             plot_periodic_structure("output/LLG/Ansatze/ansatz_SC.npz", tiles_x=2, tiles_y=2, display_mode="quiver", ax=ax_sc, ay=ay_sc)
         except: pass
-    spins_sc, f_sc, final_ax_sc, final_ay_sc = relax_phase(spins_sc, L, H_scaled, A_scaled, "SC", ax_in=ax_sc, ay_in=ay_sc, live_plot=live_plot, live_mode=live_mode, max_dt=max_dt, cfl_factor=cfl_factor, visualize_scaling=visualize_scaling)
+    spins_sc, f_sc, final_ax_sc, final_ay_sc = relax_phase(spins_sc, L, H_scaled, A_scaled, "SC", ax_in=ax_sc, ay_in=ay_sc, live_plot=live_plot, live_mode=live_mode, max_dt=max_dt, cfl_factor=cfl_factor, visualize_scaling=visualize_scaling, max_steps=max_steps, iso_scale=iso_scale)
     stats_sc = analyze_state(spins_sc, final_ax_sc, final_ay_sc, phase_name="SC", plot_fft=plot_fft)
     print(f"   -> Q={stats_sc['Q']:.2f} | Geo: {stats_sc['geometry']} ({stats_sc['peaks']} Peaks) -> Detected as: {stats_sc['classified_state']}")
     
@@ -717,7 +753,7 @@ def compare_phases(H_scaled=0.08, A_scaled=0.5, L=64, npy_file=None, plot_ansatz
             print("Displaying SP Ansatz...")
             plot_periodic_structure("output/LLG/Ansatze/ansatz_SP.npz", tiles_x=2, tiles_y=2, display_mode="quiver", ax=ax_sp, ay=ay_sp)
         except: pass
-    spins_sp, f_sp, final_ax_sp, final_ay_sp = relax_phase(spins_sp, L, H_scaled, A_scaled, "SP", ax_in=ax_sp, ay_in=ay_sp, live_plot=live_plot, live_mode=live_mode, max_dt=max_dt, cfl_factor=cfl_factor, visualize_scaling=visualize_scaling)
+    spins_sp, f_sp, final_ax_sp, final_ay_sp = relax_phase(spins_sp, L, H_scaled, A_scaled, "SP", ax_in=ax_sp, ay_in=ay_sp, live_plot=live_plot, live_mode=live_mode, max_dt=max_dt, cfl_factor=cfl_factor, visualize_scaling=visualize_scaling, max_steps=max_steps, iso_scale=iso_scale)
     stats_sp = analyze_state(spins_sp, final_ax_sp, final_ay_sp, phase_name="SP", plot_fft=plot_fft)
     print(f"   -> Q={stats_sp['Q']:.2f} | Geo: {stats_sp['geometry']} ({stats_sp['peaks']} Peaks) -> Detected as: {stats_sp['classified_state']}")
     
@@ -735,7 +771,7 @@ def compare_phases(H_scaled=0.08, A_scaled=0.5, L=64, npy_file=None, plot_ansatz
                 print("Displaying Custom Ansatz...")
                 plot_periodic_structure(npy_file, tiles_x=2, tiles_y=2, display_mode="quiver", ax=ax_cust, ay=ay_cust)
             except: pass
-        spins_cust, f_cust, final_ax_cust, final_ay_cust = relax_phase(spins_cust, L, H_scaled, A_scaled, "Custom", ax_in=ax_cust, ay_in=ay_cust, live_plot=live_plot, live_mode=live_mode, max_dt=max_dt, cfl_factor=cfl_factor)
+        spins_cust, f_cust, final_ax_cust, final_ay_cust = relax_phase(spins_cust, L, H_scaled, A_scaled, "Custom", ax_in=ax_cust, ay_in=ay_cust, live_plot=live_plot, live_mode=live_mode, max_dt=max_dt, cfl_factor=cfl_factor, max_steps=max_steps, iso_scale=iso_scale)
         stats_cust = analyze_state(spins_cust, final_ax_cust, final_ay_cust, phase_name="Custom", plot_fft=plot_fft)
     # -------------------------------------------------------------
     # Phase Classification and Energy Dynamic Mapping
@@ -762,20 +798,9 @@ def compare_phases(H_scaled=0.08, A_scaled=0.5, L=64, npy_file=None, plot_ansatz
     for ansatz_name, spins_k, ax_k, ay_k, f_k, stats_k in candidates:
         actual_class = stats_k["classified_state"]
         
-        # Grid Divergence Checks (Unphysical SDE numerical breakdown)
-        diverged_grid = ax_k > 50.0 or ay_k > 50.0 or (ax_k / ay_k) > 3.0 or (ay_k / ax_k) > 3.0
-        unraveled_to_fm = abs(f_k - f_fm) < 1e-4 or stats_k["is_uniform"]
-        
-        if diverged_grid:
-            print(f"[{ansatz_name} Ansatz] Diverged scaling grid (ax={ax_k:.1f}, ay={ay_k:.1f}). Discarded.")
-            continue
-            
-        if unraveled_to_fm:
-            # We already have the true analytical FM energy populated, so ignore numeric approximations
-            continue
-            
-        if actual_class == "Unknown Phase":
-            print(f"[{ansatz_name} Ansatz] Relaxed into {stats_k['geometry']} with Q={stats_k['Q']:.2f}. Discarded as Unverified.")
+        discard_reason = validate_result(ansatz_name, f_k, ax_k, ay_k, f_fm, stats_k)
+        if discard_reason:
+            print(f"[{ansatz_name} Ansatz] {discard_reason}")
             continue
             
         # Log defections gracefully
@@ -842,8 +867,10 @@ if __name__ == "__main__":
     parser.add_argument("--max-dt", type=float, default=0.05, help="Maximum integration timestep")
     parser.add_argument("--cfl", type=float, default=0.25, help="CFL stability factor for dynamic timestep")
     parser.add_argument("--save-all", action="store_true", help="Save all relaxed end configurations, not just the ground state")
+    parser.add_argument("--max-steps", type=int, default=None, help="Maximum number of iterations. If None, it scales as 50000*(L/32)**2.")
+    parser.add_argument("--iso-scale", action="store_true", help="Enforce isotropic scaling (constant aspect ratio)")
     
     args = parser.parse_args()
     
-    compare_phases(H_scaled=args.H, A_scaled=args.A, L=args.L, npy_file=args.npy, plot_ansatz=args.plot_ansatz, live_plot=args.live_plot, live_mode=args.live_mode, max_dt=args.max_dt, cfl_factor=args.cfl, visualize_scaling=args.vis_scale, plot_groundstate=args.plot_groundstate, plot_fft=args.plot_fft, save_all=args.save_all)
+    compare_phases(H_scaled=args.H, A_scaled=args.A, L=args.L, npy_file=args.npy, plot_ansatz=args.plot_ansatz, live_plot=args.live_plot, live_mode=args.live_mode, max_dt=args.max_dt, cfl_factor=args.cfl, visualize_scaling=args.vis_scale, plot_groundstate=args.plot_groundstate, plot_fft=args.plot_fft, save_all=args.save_all, max_steps=args.max_steps, iso_scale=args.iso_scale)
 
