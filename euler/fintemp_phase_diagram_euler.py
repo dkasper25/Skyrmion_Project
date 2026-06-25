@@ -1,14 +1,18 @@
 import os
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # CRITICAL: Prevent JAX from spanning infinite threads within multiprocessing workers!
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["JAX_CPU_DEFAULT_THREADS"] = "1"
+os.environ["XLA_FLAGS"] = "--xla_cpu_multi_thread_eigen=false intra_op_parallelism_threads=1"
 
 import numpy as np
 import sys
 import time
 import argparse
+import multiprocessing
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from fintemp_LLG import compare_fintemp_phases
@@ -101,14 +105,15 @@ def generate_fintemp_phase_diagram(T_sel=0.1, n_H=26, n_A=33, L=32, L_super=None
             if err is not None:
                 print(f"\nFailed to converge at H={h}, A={a}: {err}")
     else:
-        # Parallel execution with ProcessPoolExecutor
+        # Parallel execution with ProcessPoolExecutor using 'spawn' start method for JAX/Numba fork-safety
         completed = 0
-        with ProcessPoolExecutor(max_workers=workers) as executor:
+        mp_context = multiprocessing.get_context('spawn')
+        with ProcessPoolExecutor(max_workers=workers, mp_context=mp_context) as executor:
             future_to_task = {executor.submit(_evaluate_fintemp_point, task): task for task in tasks}
             
             for future in as_completed(future_to_task):
                 completed += 1
-                _, _, a, h, _, _, _, _, _, _ = future_to_task[future]
+                i, j, a, h, *rest = future_to_task[future]
                 sys.stdout.write(f"\rComputing Point {completed}/{n_H * n_A} | H = {h:.2f}, A = {a:.2f} ... ")
                 sys.stdout.flush()
                 
@@ -138,24 +143,7 @@ def generate_fintemp_phase_diagram(T_sel=0.1, n_H=26, n_A=33, L=32, L_super=None
     np.savez(out_path, grid=phase_grid, H_vals=H_vals, A_vals=A_vals,
              energy_SkX=energy_SkX, energy_SC=energy_SC, energy_SP=energy_SP, energy_FM=energy_FM, T=T_sel)
     
-    print(f"Data bundled and saved to '{out_path}'. Generating plots...")
-    
-    # Leverage existing plot functions by utilizing geometric path substitution 
-    # to redirect the 'output/phase_diagrams/llg/' save route towards 'output/phase_diagrams/fintemp/' natively.
-    os.makedirs("output/phase_diagrams/fintemp", exist_ok=True)
-    redirect_dir = "../../phase_diagrams/fintemp" 
-    
-    pd_title = f"Topological Magnetic Phase Diagram (T = {T_sel})"
-    plot_phase_diagram(phase_grid, H_vals, A_vals, out_name=f"{redirect_dir}/fintemp_pd_T{T_sel}_L{L}_{total_pts}.png", title=pd_title)
-    
-    energies_dict = {
-        'SkX': energy_SkX,
-        'SC': energy_SC,
-        'SP': energy_SP,
-        'FM': energy_FM
-    }
-    ed_title = f"Energy Gap to First Excited Phase (T = {T_sel})"
-    plot_energy_difference(energies_dict, H_vals, A_vals, out_name=f"{redirect_dir}/fintemp_energy_diff_T{T_sel}_L{L}_{total_pts}.png", title=ed_title)
+    print(f"Data bundled and saved to '{out_path}'. (Plotting disabled for Euler)")
 
 
 if __name__ == "__main__":
@@ -163,8 +151,8 @@ if __name__ == "__main__":
     parser.add_argument("--T", type=float, default=0, help="Temperature base for SDE thermalization")
     parser.add_argument("--nH", type=int, default=26, help="Number of points along the H axis")
     parser.add_argument("--nA", type=int, default=33, help="Number of points along the A axis")
-    parser.add_argument("--L", type=int, default=64, help="Lattice size")
-    parser.add_argument("--L_super", type=int, default=None, help="Supercell size (None = no tiling)")
+    parser.add_argument("--L", type=int, default=32, help="Lattice size")
+    parser.add_argument("--L_super", type=int, default=64, help="Supercell size (None = no tiling)")
     parser.add_argument("--steps", type=int, default=5000, help="SDE thermal equilibration steps per point")
     parser.add_argument("--block", type=int, default=1, help="SDE energy averaging block size")
     parser.add_argument("--workers", type=int, default=4, help="Number of parallel multiprocessing workers")

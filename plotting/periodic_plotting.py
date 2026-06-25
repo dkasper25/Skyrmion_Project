@@ -1,9 +1,13 @@
+import os
+import sys
+# Allow imports from the parent directory (project root) when running this script directly or as a module
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import numpy as np
 import matplotlib.pyplot as plt
 import argparse
-import os
 
-def plot_periodic_structure(spins_file, tiles_x=2, tiles_y=2, display_mode="quiver", cmap="coolwarm", scale_factor=0.8, ax=1.0, ay=1.0):
+def plot_periodic_structure(spins_file, tiles_x=2, tiles_y=2, display_mode="quiver", cmap="bwr", scale_factor=0.8, ax=1.0, ay=1.0):
     """
     Load a .npy spin configuration and recursively tile it to 
     visualize the periodic boundary conditions.
@@ -71,7 +75,7 @@ def plot_periodic_structure(spins_file, tiles_x=2, tiles_y=2, display_mode="quiv
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Plot periodic skyrmion lattices.")
     # The default file matches the output filename in MC_metropolis.py
-    parser.add_argument("file", type=str, nargs='?', default="output/MC/npy/final_spins.npy", help="Path to .npy or .npz spin file")
+    parser.add_argument("file", type=str, nargs='?', default="output/spin_states/mc/final_spins.npy", help="Path to .npy or .npz spin file")
     parser.add_argument("--tiles", type=int, default=2, help="Number of times to tile the lattice in both x and y directions")
     parser.add_argument("--mode", type=str, choices=["quiver", "heatmap"], default="quiver", help="Display mode for plotting")
     parser.add_argument("--ax", type=float, default=1.0, help="Lattice spacing in x")

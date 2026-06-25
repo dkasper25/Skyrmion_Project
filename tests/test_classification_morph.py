@@ -1,6 +1,10 @@
+import os
+import sys
+# Allow imports from the parent directory (project root) when running this script directly or as a module
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import numpy as np
 import matplotlib.pyplot as plt
-import os
 from LLG_solver import init_SkX, analyze_state
 
 def test_morph_skx_to_square(steps=50, L=128):
@@ -61,9 +65,9 @@ def test_morph_skx_to_square(steps=50, L=128):
     ax1.invert_xaxis()
     
     plt.tight_layout()
-    plt.savefig('output/LLG/Graphs/SkX_Morph_Test.png', dpi=150)
-    print("\nSaved graph to 'output/LLG/Graphs/SkX_Morph_Test.png'")
+    plt.savefig('output/plots/llg/SkX_Morph_Test.png', dpi=150)
+    print("\nSaved graph to 'output/plots/llg/SkX_Morph_Test.png'")
 
 if __name__ == "__main__":
-    os.makedirs("output/LLG/Graphs", exist_ok=True)
+    os.makedirs("output/plots/llg", exist_ok=True)
     test_morph_skx_to_square()

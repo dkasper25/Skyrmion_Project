@@ -1,3 +1,8 @@
+import os
+import sys
+# Allow imports from the parent directory (project root) when running this script directly or as a module
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import numpy as np
 import matplotlib.pyplot as plt
 import types
@@ -90,8 +95,10 @@ def plot_pixelwise_comparison():
     ax2.set_aspect('equal')
 
     plt.tight_layout()
-    plt.savefig("output/SC_pixelwise_diff.png", dpi=300)
-    print("Saved pixel-wise comparison plot to output/SC_pixelwise_diff.png")
+    # Ensure output graph directory exists
+    os.makedirs("output/plots/llg", exist_ok=True)
+    plt.savefig("output/plots/llg/SC_pixelwise_diff.png", dpi=300)
+    print("Saved pixel-wise comparison plot to output/plots/llg/SC_pixelwise_diff.png")
 
 if __name__ == "__main__":
     plot_pixelwise_comparison()

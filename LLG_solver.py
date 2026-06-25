@@ -349,7 +349,7 @@ def relax_phase_numba(spins, L, H_scaled, A_scaled, max_steps=50000, tol=1e-8, a
         if ay <= 0: ay = ay_in
 
         # Check convergence
-        if (global_step_start + step) > 10000 and abs(f_tot - prev_f) < tol:
+        if (global_step_start + step) > 3000 and abs(f_tot - prev_f) < tol:
             # We must break here and transfer the output
             spins_current[:] = spins_next[:]
             break
@@ -367,7 +367,7 @@ def relax_phase_numba(spins, L, H_scaled, A_scaled, max_steps=50000, tol=1e-8, a
 # Part D & E: Execution Wrapper & Analysis
 # ---------------------------------------------------------
 
-def analyze_state(spins, ax, ay, phase_name="Unknown", plot_fft=False):
+def analyze_state(spins, ax, ay, phase_name="Unknown", plot_fft=False, outpath_override=None):
     """
     Computes Topological Charge (Q) and categorizes phase symmetry 
     by checking physical gradients and Fast Fourier Transform (FFT) Bragg peaks.
@@ -459,16 +459,16 @@ def analyze_state(spins, ax, ay, phase_name="Unknown", plot_fft=False):
         else:
             c2, c4, c6 = 0, 0, 0
             
-        import scipy.ndimage
-        mask = power > (max_power * 0.4)
-        s = scipy.ndimage.generate_binary_structure(2, 1)
-        labels, num_peaks = scipy.ndimage.label(mask, structure=s)
+        mask = power > (max_power * 0.25)
+        
+        # Treat each individual pixel above threshold as a peak (no connected components)
+        peaks_indices = np.argwhere(mask)
+        num_peaks = len(peaks_indices)
         
         is_collinear = False
         if num_peaks > 0:
-            peak_centers = scipy.ndimage.center_of_mass(mask, labels, np.arange(1, num_peaks + 1))
-            dy = np.array([p[0] for p in peak_centers]) - (L_x // 2)
-            dx = np.array([p[1] for p in peak_centers]) - (L_y // 2)
+            dy = peaks_indices[:, 0] - (L_x // 2)
+            dx = peaks_indices[:, 1] - (L_y // 2)
             angles_peaks = np.arctan2(dy, dx)
             R = np.sqrt(np.mean(np.cos(2 * angles_peaks))**2 + np.mean(np.sin(2 * angles_peaks))**2)
             if num_peaks == 1:
@@ -478,10 +478,14 @@ def analyze_state(spins, ax, ay, phase_name="Unknown", plot_fft=False):
 
         if is_collinear and (num_peaks % 2 == 0 or num_peaks == 1):
             geometry = "1D Spiral"
-        elif c6 > c4:
+        elif c2 > c4 and c2 > c6 and c2 >= 0.15:
+            geometry = "1D Spiral"
+        elif c6 > c4 and c6 >= 0.15:
             geometry = "2D Hexagonal"
-        else:
+        elif c4 >= 0.15:
             geometry = "2D Square"
+        else:
+            geometry = "Unknown Geometry"
                 
     # 3. Topology Classification
     topology = "Skyrmionic" if (not is_uniform and abs(Q) > 0.5) else "Trivial"
@@ -489,14 +493,34 @@ def analyze_state(spins, ax, ay, phase_name="Unknown", plot_fft=False):
     # 4. Final Definitive State Mapping
     classified_state = "FM"
     if not is_uniform:
-        if geometry == "2D Hexagonal" and topology == "Skyrmionic":
-            classified_state = "SkX"
-        elif geometry == "2D Square":
-            classified_state = "SC"
-        elif geometry == "1D Spiral" and abs(Q) < 0.5:
+        # Morphological Shape Analysis to identify Labyrinthine Stripes
+        mask = n[:, :, 2] > Mz
+        labeled, num_features = scipy.ndimage.label(mask)
+        shape_factor = 1.0
+        if num_features > 0:
+            sizes = np.bincount(labeled.ravel())[1:]
+            largest_label = np.argmax(sizes) + 1
+            largest_mask = labeled == largest_label
+            area = sizes[largest_label - 1]
+            eroded = scipy.ndimage.binary_erosion(largest_mask)
+            perimeter = np.sum(largest_mask & ~eroded)
+            if perimeter > 0:
+                shape_factor = (4 * np.pi * area) / (perimeter**2)
+                
+        if shape_factor < 0.15:
             classified_state = "SP"
+            geometry = "Labyrinthine Stripe"
         else:
-            classified_state = "Unknown Phase"
+            if geometry == "2D Hexagonal" and topology == "Skyrmionic" and c6 >= 0.15:
+                classified_state = "SkX"
+            elif geometry == "2D Square" and c4 >= 0.15:
+                classified_state = "SC"
+            elif geometry == "1D Spiral" and abs(Q) < 0.5:
+                classified_state = "SP"
+            else:
+                # If there are no clear, coherent periodic features, fall back to FM.
+                # This naturally handles noisy/fluctuating FM states at finite temperature.
+                classified_state = "FM"
             
     if plot_fft:
         import matplotlib.pyplot as plt
@@ -516,16 +540,37 @@ def analyze_state(spins, ax, ay, phase_name="Unknown", plot_fft=False):
             axs[2].text(0.5, 0.5, "Uniform State\n(No Symmetry)", ha='center', va='center')
             axs[2].axis('off')
         else:
-            # Calculate physical k-space bounds
-            k_max_x = np.pi / ax
-            k_max_y = np.pi / ay
-            extent_k = [-k_max_x, k_max_x, -k_max_y, k_max_y]
+            # Calculate physical k-space bounds accurately mapping pixel centers
+            dk_x = 2 * np.pi / (L_x * ax)
+            dk_y = 2 * np.pi / (L_y * ay)
+            extent_k = [
+                (-L_x//2 - 0.5) * dk_x,
+                (L_x - 1 - L_x//2 + 0.5) * dk_x,
+                (-L_y//2 - 0.5) * dk_y,
+                (L_y - 1 - L_y//2 + 0.5) * dk_y
+            ]
             
-            im = axs[1].imshow(np.log10(power.T + 1e-12), cmap='magma', extent=extent_k, origin='lower', interpolation='bicubic')
+            im = axs[1].imshow(np.log10(power.T + 1e-12), cmap='magma', extent=extent_k, origin='lower', interpolation='nearest')
             axs[1].set_title(f"Reciprocal Power Spectrum (Log)\n{num_peaks} Fundamental Peaks")
             axs[1].set_xlabel(r"$k_x$")
             axs[1].set_ylabel(r"$k_y$")
-            axs[1].contour(mask.T, levels=[0.5], colors='cyan', linewidths=1, extent=extent_k)
+            
+            if num_peaks > 0:
+                k_x_peaks = (peaks_indices[:, 0] - (L_x // 2)) * dk_x
+                k_y_peaks = (peaks_indices[:, 1] - (L_y // 2)) * dk_y
+                
+                # Plot other peaks
+                axs[1].scatter(k_x_peaks, k_y_peaks, s=30, color='lime', alpha=0.9, marker='o', edgecolors='black', linewidths=0.5, label="Peaks")
+                
+                # Plot highest peak and zoom in if fundamental wavevector is found
+                if np.max(power_no_dc) > 0:
+                    k_x_max = k_x_real[max_idx]
+                    k_y_max = k_y_real[max_idx]
+                    axs[1].scatter(k_x_max, k_y_max, s=50, color='cyan', alpha=0.9, marker='o', edgecolors='black', linewidths=0.5, label="Max Peak")
+                    
+                    # Zoom in to fundamental ring region
+                    axs[1].set_xlim(-r_fundamental * 5.5, r_fundamental * 5.5)
+                    axs[1].set_ylim(-r_fundamental * 5.5, r_fundamental * 5.5)
             
             # 3rd Subplot: Angular Power Spectrum
             angles_deg = np.degrees(np.mod(angles, 2 * np.pi))
@@ -547,8 +592,12 @@ def analyze_state(spins, ax, ay, phase_name="Unknown", plot_fft=False):
                         verticalalignment='top', bbox=props)
             
         plt.tight_layout()
-        os.makedirs("output/LLG/Graphs", exist_ok=True)
-        outpath = f"output/LLG/Graphs/FFT_{phase_name}.png"
+        if outpath_override is not None:
+            outpath = outpath_override
+            os.makedirs(os.path.dirname(os.path.abspath(outpath)), exist_ok=True)
+        else:
+            os.makedirs("output/plots/llg", exist_ok=True)
+            outpath = f"output/plots/llg/FFT_{phase_name}.png"
         plt.savefig(outpath, dpi=150)
         plt.close(fig)
         
@@ -615,7 +664,7 @@ def relax_phase(spins, L, H_scaled, A_scaled, phase_name, ax_in=1.0, ay_in=1.0, 
         fig.tight_layout()
         plt.show()
     
-    chunk = 100 if live_plot else max_steps
+    chunk = 10 if live_plot else max_steps
     
     target_ax, target_ay = ax, ay
     while steps_done < max_steps:
@@ -685,7 +734,7 @@ def get_FM_energy(H_scaled, A_scaled):
             
     return min(e_aligned, e_anti_aligned, e_tilted)
 
-def validate_result(ansatz_name, f, ax, ay, f_fm, stats):
+def validate_result(ansatz_name, f, ax, ay, f_fm, stats, max_a=50.0, max_aspect=3.0):
     """
     Shared validation gate used by both LLG and fintemp comparison pipelines.
     Returns a human-readable discard reason string, or None if the result is valid.
@@ -695,12 +744,10 @@ def validate_result(ansatz_name, f, ax, ay, f_fm, stats):
       2. FM collapse      — energy matched analytical FM or spin field is uniform
       3. Unknown phase    — analyze_state could not assign a definitive label
     """
-    if ax > 50.0 or ay > 50.0 or (ax / ay) > 3.0 or (ay / ax) > 3.0:
+    if ax > max_a or ay > max_a or (ax / ay) > max_aspect or (ay / ax) > max_aspect:
         return f"Diverged scaling grid (ax={ax:.1f}, ay={ay:.1f}). Discarded."
     if abs(f - f_fm) < 1e-4 or stats["is_uniform"]:
         return "Collapsed into FM state. Discarded (analytical FM energy used instead)."
-    if ansatz_name in ["SkX", "SC"] and stats["classified_state"] == "SP":
-        return "defected and converged into -> SP! Discarded."
     if stats["classified_state"] == "Unknown Phase":
         return f"Unverified phase (geometry={stats['geometry']}, Q={stats['Q']:.2f}). Discarded."
     return None
@@ -716,12 +763,13 @@ def compare_phases(H_scaled=0.08, A_scaled=0.5, L=64, npy_file=None, plot_ansatz
     print("Initializing SkX...")
     spins_skx, ax_skx, ay_skx = init_SkX(L)
     if save_outputs or plot_ansatz:
-        np.savez("output/LLG/Ansatze/ansatz_SkX.npz", spins=spins_skx, ax=ax_skx, ay=ay_skx)
+        os.makedirs("output/spin_states/llg", exist_ok=True)
+        np.savez("output/spin_states/llg/ansatz_SkX.npz", spins=spins_skx, ax=ax_skx, ay=ay_skx)
     if plot_ansatz:
         try:
             from periodic_plotting import plot_periodic_structure
             print("Displaying SkX Ansatz...")
-            plot_periodic_structure("output/LLG/Ansatze/ansatz_SkX.npz", tiles_x=2, tiles_y=2, display_mode="quiver", ax=ax_skx, ay=ay_skx)
+            plot_periodic_structure("output/spin_states/llg/ansatz_SkX.npz", tiles_x=2, tiles_y=2, display_mode="quiver", ax=ax_skx, ay=ay_skx)
         except: pass
     spins_skx, f_skx, final_ax_skx, final_ay_skx = relax_phase(spins_skx, L, H_scaled, A_scaled, "SkX", ax_in=ax_skx, ay_in=ay_skx, live_plot=live_plot, live_mode=live_mode, max_dt=max_dt, cfl_factor=cfl_factor, visualize_scaling=visualize_scaling, max_steps=max_steps, iso_scale=iso_scale)
     stats_skx = analyze_state(spins_skx, final_ax_skx, final_ay_skx, phase_name="SkX", plot_fft=plot_fft)
@@ -731,12 +779,13 @@ def compare_phases(H_scaled=0.08, A_scaled=0.5, L=64, npy_file=None, plot_ansatz
     print("Initializing SC...")
     spins_sc, ax_sc, ay_sc = init_SC(L)
     if save_outputs or plot_ansatz:
-        np.savez("output/LLG/Ansatze/ansatz_SC.npz", spins=spins_sc, ax=ax_sc, ay=ay_sc)
+        os.makedirs("output/spin_states/llg", exist_ok=True)
+        np.savez("output/spin_states/llg/ansatz_SC.npz", spins=spins_sc, ax=ax_sc, ay=ay_sc)
     if plot_ansatz:
         try:
             from periodic_plotting import plot_periodic_structure
             print("Displaying SC Ansatz...")
-            plot_periodic_structure("output/LLG/Ansatze/ansatz_SC.npz", tiles_x=2, tiles_y=2, display_mode="quiver", ax=ax_sc, ay=ay_sc)
+            plot_periodic_structure("output/spin_states/llg/ansatz_SC.npz", tiles_x=2, tiles_y=2, display_mode="quiver", ax=ax_sc, ay=ay_sc)
         except: pass
     spins_sc, f_sc, final_ax_sc, final_ay_sc = relax_phase(spins_sc, L, H_scaled, A_scaled, "SC", ax_in=ax_sc, ay_in=ay_sc, live_plot=live_plot, live_mode=live_mode, max_dt=max_dt, cfl_factor=cfl_factor, visualize_scaling=visualize_scaling, max_steps=max_steps, iso_scale=iso_scale)
     stats_sc = analyze_state(spins_sc, final_ax_sc, final_ay_sc, phase_name="SC", plot_fft=plot_fft)
@@ -746,12 +795,13 @@ def compare_phases(H_scaled=0.08, A_scaled=0.5, L=64, npy_file=None, plot_ansatz
     print("Initializing SP...")
     spins_sp, ax_sp, ay_sp = init_SP(L)
     if save_outputs or plot_ansatz:
-        np.savez("output/LLG/Ansatze/ansatz_SP.npz", spins=spins_sp, ax=ax_sp, ay=ay_sp)
+        os.makedirs("output/spin_states/llg", exist_ok=True)
+        np.savez("output/spin_states/llg/ansatz_SP.npz", spins=spins_sp, ax=ax_sp, ay=ay_sp)
     if plot_ansatz:
         try:
             from periodic_plotting import plot_periodic_structure
             print("Displaying SP Ansatz...")
-            plot_periodic_structure("output/LLG/Ansatze/ansatz_SP.npz", tiles_x=2, tiles_y=2, display_mode="quiver", ax=ax_sp, ay=ay_sp)
+            plot_periodic_structure("output/spin_states/llg/ansatz_SP.npz", tiles_x=2, tiles_y=2, display_mode="quiver", ax=ax_sp, ay=ay_sp)
         except: pass
     spins_sp, f_sp, final_ax_sp, final_ay_sp = relax_phase(spins_sp, L, H_scaled, A_scaled, "SP", ax_in=ax_sp, ay_in=ay_sp, live_plot=live_plot, live_mode=live_mode, max_dt=max_dt, cfl_factor=cfl_factor, visualize_scaling=visualize_scaling, max_steps=max_steps, iso_scale=iso_scale)
     stats_sp = analyze_state(spins_sp, final_ax_sp, final_ay_sp, phase_name="SP", plot_fft=plot_fft)
@@ -788,9 +838,9 @@ def compare_phases(H_scaled=0.08, A_scaled=0.5, L=64, npy_file=None, plot_ansatz
         candidates.append(("Custom", spins_cust, final_ax_cust, final_ay_cust, f_cust, stats_cust))
         
     if save_all:
-        os.makedirs("output/LLG/Relaxed", exist_ok=True)
+        os.makedirs("output/spin_states/llg", exist_ok=True)
         for ansatz_name, spins_k, ax_k, ay_k, f_k, stats_k in candidates:
-            out_path = f"output/LLG/Relaxed/relaxed_{ansatz_name}_L{L}_A{A_scaled:.2f}_H{H_scaled:.2f}.npz"
+            out_path = f"output/spin_states/llg/relaxed_{ansatz_name}_L{L}_A{A_scaled:.2f}_H{H_scaled:.2f}.npz"
             np.savez(out_path, spins=spins_k, ax=ax_k, ay=ay_k, energy=f_k, Q=stats_k['Q'], classified=stats_k['classified_state'])
             print(f"Saved relaxed {ansatz_name} state to '{out_path}'")
         
@@ -837,7 +887,8 @@ def compare_phases(H_scaled=0.08, A_scaled=0.5, L=64, npy_file=None, plot_ansatz
         best_spins, best_ax, best_ay = best_states[winner]
             
     if best_spins is not None:
-        out_name = f"output/LLG/Groundstates/LLG_groundstate_L{L}_A{A_scaled:.2f}_H{H_scaled:.2f}.npz"
+        os.makedirs("output/spin_states/llg", exist_ok=True)
+        out_name = f"output/spin_states/llg/groundstate_L{L}_A{A_scaled:.2f}_H{H_scaled:.2f}.npz"
         if save_outputs or plot_groundstate:
             np.savez(out_name, spins=best_spins, ax=best_ax, ay=best_ay)
             print(f"Saved numerical ground state to '{out_name}'")

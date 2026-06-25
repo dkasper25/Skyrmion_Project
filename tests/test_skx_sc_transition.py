@@ -1,6 +1,10 @@
+import os
+import sys
+# Allow imports from the parent directory (project root) when running this script directly or as a module
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import numpy as np
 import matplotlib.pyplot as plt
-import os
 from LLG_solver import init_SkX, init_SC, relax_phase, analyze_state
 
 def test_transition(H_fixed=1.2, A_start=1.0, A_end=1.7, steps=20, L=128):
@@ -109,9 +113,9 @@ def test_transition(H_fixed=1.2, A_start=1.0, A_end=1.7, steps=20, L=128):
         ax_sym.axvspan(A_values[i], A_values[i+1], color=color, alpha=0.5, linewidth=0)
 
     plt.tight_layout()
-    plt.savefig(f'output/LLG/Graphs/SkX_SC_Energy_Transition_Test_h={H_fixed}.png', dpi=150)
-    print(f"\nTest complete! Saved graph to 'output/LLG/Graphs/SkX_SC_Energy_Transition_Test_h={H_fixed}.png'")
+    plt.savefig(f'output/plots/llg/SkX_SC_Energy_Transition_Test_h={H_fixed}.png', dpi=150)
+    print(f"\nTest complete! Saved graph to 'output/plots/llg/SkX_SC_Energy_Transition_Test_h={H_fixed}.png'")
 
 if __name__ == "__main__":
-    os.makedirs("output/LLG/Graphs", exist_ok=True)
+    os.makedirs("output/plots/llg", exist_ok=True)
     test_transition()

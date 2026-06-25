@@ -125,7 +125,8 @@ def generate_phase_diagram(n_H=26, n_A=33, L=32, workers=None, H_min=0.0, H_max=
     
     # Save the exact simulation data so you don't have to recompute just to adjust the plot design!
     total_pts = n_H * n_A
-    out_path = f"output/LLG/Phase Diagram Data/phase_diagram_L{L}_{total_pts}.npz"
+    os.makedirs("output/phase_diagrams/llg", exist_ok=True)
+    out_path = f"output/phase_diagrams/llg/phase_diagram_L{L}_{total_pts}.npz"
     np.savez(out_path, grid=phase_grid, H_vals=H_vals, A_vals=A_vals,
              energy_SkX=energy_SkX, energy_SC=energy_SC, energy_SP=energy_SP, energy_FM=energy_FM)
     
@@ -183,10 +184,11 @@ def plot_phase_diagram(phase_grid, H_vals, A_vals, out_name="phase_diagram.png",
     
     # Subtle dashed grid over the heatmap
     ax.grid(color='white', alpha=0.5, linestyle='--', linewidth=0.5)
-    
+    plt.style.use('default')
+    os.makedirs("output/phase_diagrams/llg", exist_ok=True)
     plt.tight_layout()
-    plt.savefig(f"output/LLG/Graphs/{out_name}", dpi=300)
-    print(f"Saved high-res plot to 'output/LLG/Graphs/{out_name}'")
+    plt.savefig(f"output/phase_diagrams/llg/{out_name}", dpi=300)
+    print(f"Saved high-res plot to 'output/phase_diagrams/llg/{out_name}'")
     
     plt.show()
 
@@ -245,10 +247,11 @@ def plot_energy_difference(energies_dict, H_vals, A_vals, out_name="energy_diff.
     ax.set_title(title, fontsize=16, pad=20)
     
     ax.grid(color='white', alpha=0.3, linestyle='--', linewidth=0.5)
-    
+    plt.style.use('default')
+    os.makedirs("output/phase_diagrams/llg", exist_ok=True)
     plt.tight_layout()
-    plt.savefig(f"output/LLG/Graphs/{out_name}", dpi=300)
-    print(f"Saved high-res energy diff plot to 'output/LLG/Graphs/{out_name}'")
+    plt.savefig(f"output/phase_diagrams/llg/{out_name}", dpi=300)
+    print(f"Saved high-res energy diff plot to 'output/phase_diagrams/llg/{out_name}'")
     
     plt.show()
 
@@ -322,10 +325,11 @@ def plot_fm_stabilization_energy(energies_dict, H_vals, A_vals, out_name="fm_sta
     ax.set_title(title, fontsize=16, pad=20)
     
     ax.grid(color='white', alpha=0.3, linestyle='--', linewidth=0.5)
-    
+    plt.style.use('default')
+    os.makedirs("output/phase_diagrams/llg", exist_ok=True)
     plt.tight_layout()
-    plt.savefig(f"output/LLG/Graphs/{out_name}", dpi=300)
-    print(f"Saved high-res FM stabilization plot to 'output/LLG/Graphs/{out_name}'")
+    plt.savefig(f"output/phase_diagrams/llg/{out_name}", dpi=300)
+    print(f"Saved high-res FM stabilization plot to 'output/phase_diagrams/llg/{out_name}'")
     
     plt.show()
 
@@ -345,7 +349,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     import glob
-    existing_files = glob.glob("output/LLG/Phase Diagram Data/*.npz")
+    existing_files = glob.glob("output/phase_diagrams/llg/*.npz")
     
     if len(existing_files) > 0 and not args.recompute:
         print("\nFound existing phase diagram data files:")

@@ -1,6 +1,10 @@
+import os
+import sys
+# Allow imports from the parent directory (project root) when running this script directly or as a module
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import numpy as np
 import matplotlib.pyplot as plt
-import os
 from fintemp_LLG import compare_fintemp_phases
 
 # Create a clean mock arguments class to pass to the function
@@ -96,8 +100,8 @@ def plot_energy_scaling():
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     
     # Save and show
-    os.makedirs("output/Fintemp", exist_ok=True)
-    outpath = f"output/Fintemp/energy_vs_temperature_H{args.H}_A{args.A}_Tmax{args.T}.png"
+    os.makedirs("output/plots/fintemp", exist_ok=True)
+    outpath = f"output/plots/fintemp/energy_vs_temperature_H{args.H}_A{args.A}_Tmax{args.T}.png"
     plt.savefig(outpath, dpi=300, bbox_inches='tight')
     print(f"\nSweep Complete! Plot saved to '{outpath}'")
     

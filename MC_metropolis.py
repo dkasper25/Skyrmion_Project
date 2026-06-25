@@ -152,12 +152,14 @@ def run_simulation(
     script_dir = os.path.dirname(os.path.abspath(__file__))
     
     if not output_filename:
-        output_filename = f"output/MC/npy/final_spins_L{L}_A{a_scaled:.2f}_H{h_scaled:.2f}.npy"
+        output_filename = f"output/spin_states/mc/final_spins_L{L}_A{a_scaled:.2f}_H{h_scaled:.2f}.npy"
     output_path = os.path.join(script_dir, output_filename)
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
     
     if not video_filename:
-        video_filename = f"output/MC/videos/skyrmions_L{L}_A{a_scaled:.2f}_H{h_scaled:.2f}.mp4"
+        video_filename = f"output/videos/mc/skyrmions_L{L}_A{a_scaled:.2f}_H{h_scaled:.2f}.mp4"
     video_path = os.path.join(script_dir, video_filename)
+    os.makedirs(os.path.dirname(video_path), exist_ok=True)
 
     # Initialize spin lattice
     if initial_spins is not None:

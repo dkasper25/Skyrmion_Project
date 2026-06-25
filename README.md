@@ -62,5 +62,5 @@ python MC_metropolis.py
 **6. Periodic Lattice Visualization**
 Load `.npy` or `.npz` spin outputs from any of the local tools to meticulously visually analyze topological configurations tiled periodically across coordinate space.
 ```bash
-python periodic_plotting.py "output/Fintemp/fintemp_groundstate_T0.05_H1.0.npz" --tiles 2 --mode quiver
+python periodic_plotting.py "output/spin_states/fintemp/fintemp_groundstate_T0.05_H1.0.npz" --tiles 2 --mode quiver
 ```
