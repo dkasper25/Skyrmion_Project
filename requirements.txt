@@ -7,3 +7,4 @@ imageio[ffmpeg]
 jax
 diffrax
 equinox
+lineax

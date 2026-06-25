@@ -1,66 +1,123 @@
 # Skyrmion LLG Solver & Monte Carlo Simulator
 
-This project contains a suite of high-performance Python tools for studying magnetic skyrmions. It includes an optimizer based on the deterministic Landau-Lifshitz-Gilbert (LLG) equation for exact phase stability analysis, finite-temperature SDE extensions for robust thermodynamic mapping, and a Monte Carlo simulator using the Metropolis algorithm to model the formation dynamics of magnetic skyrmion lattices.
+This project contains a suite of high-performance Python tools for studying magnetic skyrmions. It includes an optimizer based on the deterministic Landau-Lifshitz-Gilbert (LLG) equation for exact phase stability analysis, finite-temperature stochastic differential equation (SDE) extensions for robust thermodynamic mapping, and a Monte Carlo simulator using the Metropolis algorithm to model the formation dynamics of magnetic skyrmion lattices.
+
+---
 
 ## Physics Model
-The classical spin Hamiltonian used to stabilize the skyrmions on a discrete 2D square lattice includes:
+
+The classical spin Hamiltonian used to stabilize the skyrmions on a discrete 2D square lattice with periodic boundary conditions includes:
 * **Heisenberg Exchange** ($J$): Ferromagnetic coupling between nearest neighbors.
 * **Dzyaloshinskii-Moriya Interaction** ($D$): Interfacial antisymmetric exchange that favors chiral spin textures perpendicular to the neighbor direction.
 * **Zeeman Energy** ($B$): Coupling to an external out-of-plane magnetic field.
 * **Uniaxial Anisotropy** ($K$): Easy-axis out-of-plane anisotropy favoring $z$-oriented spins.
 
-## Features
-* **High-Performance LLG Solver**: Numerically integrates the overdamped Landau-Lifshitz-Gilbert (LLG) equation to accurately find exact theoretical magnetic ground states (SkX, SC, SP, FM). Uses a robust Heun (RK2) integrator with fully dynamic spatial scaling, natively compiled with Numba for ~100x speedups.
-* **Finite-Temperature SDE Solver**: Leverages `JAX` and `Diffrax` to integrate stochastic differential equations (SDEs), enabling thermodynamic evaluations and rigorous average energy calculations of magnetic geometries at finite thermal gradients.
-* **Topological Phase Diagrams**: Systematically sweep across applied magnetic fields and anisotropy boundaries to construct precise quantitative stability phase diagrams of topological magnetic states. This natively incorporates heavily optimized multicore processing parameters.
-* **Monte Carlo Simulated Annealing**: Smoothly cools the system from a high-temperature random state to capture the dynamic thermal nucleation of a skyrmion lattice.
-* **Live Visualization & Video Export**: Both numerical solvers feature real-time Matplotlib integrations utilizing multidimensional quiver plots, alongside automated MP4 video exports for monitoring structural formation.
+---
+
+## Repository Structure & Modules
+
+The repository is organized into distinct logical modules for simulation, analysis, plotting, and high-performance cluster execution:
+
+### 1. Core Simulation Engines
+* **`LLG_solver.py`**: Find exact $T=0$ theoretical magnetic ground states (Skyrmion Crystal (SkX), Square Cell (SC), Spiral Phase (SP), and Ferromagnetic (FM) state). Integrates the overdamped Landau-Lifshitz-Gilbert (LLG) equation using a Heun (RK2) integrator with dynamic spatial scaling, natively compiled with Numba.
+* **`fintemp_LLG.py`**: Integrates the stochastic Landau-Lifshitz-Gilbert equation at finite temperatures using a Stratonovich SDE framework. Built on `JAX`, `Diffrax`, and `Equinox` for fast GPU/CPU parallel integration with strict geometric projection onto the spin manifold $|n|=1$.
+* **`MC_metropolis.py`**: Monte Carlo simulator using the Metropolis algorithm with simulated annealing to capture the dynamic thermal nucleation of skyrmion lattices from a high-temperature random state.
+
+### 2. Phase Diagram Sweepers
+* **`phase_diagram.py`**: Systematically sweeps magnetic field ($H$) and anisotropy ($A$) parameters to construct $T=0$ deterministic phase stability diagrams using multi-core CPU parallelization.
+* **`fintemp_phase_diagram.py`**: Sweeps $H$ and $A$ at finite temperatures to build thermodynamic phase diagrams, utilizing a multi-process SDE simulation pipeline.
+* **`state_analysis.py`**: Provides post-processing tools to calculate topological charge (Skyrmion number $Q$), identify phase boundaries, and classify relaxed spin configurations.
+
+### 3. Plotting & Visualization (`plotting/`)
+* **`plotting/periodic_plotting.py`**: Loads spin configuration outputs (`.npy` or `.npz` files) and tiles them periodically in 2D to visualize the extended lattice structure as quivers or color maps.
+* **`plotting/plot_interpolation_grid_minimal.py`**: Generates a clean, publication-quality conceptual schematic of the grid interpolation step that occurs before launching SDE simulations.
+* **`plotting/plot_interpolation_grid_colorful.py`**: Generates a colorful version of the grid interpolation schematic, using identical, high-resolution soft heatmaps of the out-of-plane spin component $n_z$ behind the grid points.
+* **`plotting/plot_fintemp_data.py`**: Reads SDE sweep output datasets and plots finite-temperature phase diagrams.
+* **`plotting/plot_mc_phase_diagram.py`**: Plots phase diagrams and energy curves generated by the Monte Carlo solver.
+* **`plotting/make_video.py`**: Generates animations (MP4 videos) of the spin configurations during dynamic relaxation or heating processes.
+
+### 4. HPC Euler Execution (`euler/`)
+* **`euler/fintemp_phase_diagram_euler.py`**: A specialized version of the finite-temperature phase diagram sweeper optimized for running headlessly on the ETH Zurich Euler HPC cluster (saving raw `.npz` data and bypassing GUI plotting).
+* **`euler/submit_fintemp_pd.sh`**: A SLURM submission shell script configured to launch large-scale parallel SDE sweeps on Euler.
+
+---
 
 ## Dependencies
-You can install the required dependencies using `pip`:
+
+The project requires Python 3.10+ and the following scientific computing libraries:
+* **`numpy`**: Core numerical arrays and mathematical functions.
+* **`scipy`**: Interpolation and coordinate mapping.
+* **`matplotlib`**: Quiver plots, heatmaps, and publication figures.
+* **`numba`**: JIT-compilation of the deterministic LLG solver.
+* **`imageio` & `imageio[ffmpeg]`**: High-performance video rendering and export.
+* **`jax`**: High-performance JIT-compiled array operations for SDEs.
+* **`diffrax`**: ODE/SDE differential equation solvers in JAX.
+* **`equinox`**: Neural network and helper structures in JAX.
+* **`lineax`**: Linear equation solvers in JAX (dependency of Diffrax).
+
+To install all dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-## Running the Project
+---
 
-**1. Deterministic Phase Stability Extractor**
-Generates and plots a full numerical phase diagram comparing the energy densities of various theoretical skyrmion phase configurations (Ansatzes) perfectly relaxed at `T=0`.
+## Running the Code
+
+### 1. Deterministic Ground-State Phase Diagrams ($T=0$)
+To compute and plot the stability phase diagram by relaxing analytical ansatz configurations:
 ```bash
 python phase_diagram.py --nH 26 --nA 33 --L 32
 ```
-
-Focused high-precision window (anisotropy 1.0 to 1.5, magnetic field 0.0 to 0.5) at lattice size 128:
+To run a high-resolution focused sweep (e.g., $128 \times 128$ grid, anisotropy $1.0$ to $1.5$, field $0.0$ to $0.5$):
 ```bash
 python phase_diagram.py --nH 51 --nA 51 --L 128 --Hmin 0.0 --Hmax 0.5 --Amin 1.0 --Amax 1.5 --recompute
 ```
 
-**2. Finite-Temperature SDE Phase Mapping**
-Runs stochastic SDE integrations mapping true thermodynamic energies arrayed cleanly across a full configuration grid at a specified base temperature.
+### 2. Finite-Temperature SDE Phase Mapping
+To run parallelized stochastic SDE sweeps on your local machine to map out thermodynamic phase boundaries:
 ```bash
 python fintemp_phase_diagram.py --T 0.1 --steps 1000 --block 100 --workers 4
 ```
 
-**3. Deterministic Point Relaxation**
-Test a specific Hamiltonian parameter set by relaxing analytical ansatz formulations directly to local minimums.
+### 3. Single-Point Spin Relaxation
+To test a specific set of parameters and watch the real-time relaxation of a skyrmion lattice:
 ```bash
 python LLG_solver.py --H 1.0 --A 0.8 --L 64 --live-plot
 ```
 
-**4. Finite-Temperature Single Point Analytics**
-Simulate specific topological geometry structures and evaluate thermodynamic competition utilizing the direct stochastic framework.
+### 4. Single-Point Finite-Temperature Dynamics
+To simulate a single spin grid under thermal fluctuations using the JAX stochastic solver:
 ```bash
 python fintemp_LLG.py --L 32 --T 0.05 --H 1.0 --A 1.0 --steps 5000
 ```
 
-**5. Monte Carlo Nucleation**
-Simulate thermal melting and nucleation processes, plotting real-time visualizations.
+### 5. Monte Carlo Lattice Nucleation
+To simulate the thermal nucleation of skyrmion lattices using Metropolis simulated annealing:
 ```bash
 python MC_metropolis.py
 ```
 
-**6. Periodic Lattice Visualization**
-Load `.npy` or `.npz` spin outputs from any of the local tools to meticulously visually analyze topological configurations tiled periodically across coordinate space.
+### 6. Extended Lattice Visualization
+To tile and visualize a saved spin state periodically across multiple unit cells:
 ```bash
-python periodic_plotting.py "output/spin_states/fintemp/fintemp_groundstate_T0.05_H1.0.npz" --tiles 2 --mode quiver
+python plotting/periodic_plotting.py "output/spin_states/fintemp/fintemp_groundstate_T0.05_H1.0.npz" --tiles 2 --mode quiver
 ```
+
+### 7. Conceptual Grid Interpolation Schematics
+To generate the conceptual schematics of the grid interpolation pipeline (minimal or colorful):
+```bash
+# Generate the minimal black-and-white schematic
+python plotting/plot_interpolation_grid_minimal.py
+
+# Generate the colorful schematic with identical soft background heatmaps
+python plotting/plot_interpolation_grid_colorful.py
+```
+
+---
+
+## Running on the ETH Zurich Euler HPC Cluster
+
+For running large-scale simulation sweeps on the Euler cluster, use the submission scripts and configurations located in the `euler/` folder. 
+
+Detailed step-by-step instructions on connecting to the cluster, uploading code, submitting SLURM batch jobs, monitoring progress, and downloading output datasets can be found in the [Euler Simulation Workflow Cheat Sheet](euler_cheatsheet.md).
